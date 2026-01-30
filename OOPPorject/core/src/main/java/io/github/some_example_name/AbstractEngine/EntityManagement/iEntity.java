@@ -1,6 +1,8 @@
 package io.github.some_example_name.AbstractEngine.EntityManagement;
 
-public interface entityInterface {
+public interface iEntity {
+
+    void start();
 
     // Update method - called every frame
     // Abstract update: subclasses MUST implement this

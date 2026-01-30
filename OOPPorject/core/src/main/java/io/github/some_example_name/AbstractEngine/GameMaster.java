@@ -7,8 +7,6 @@ import io.github.some_example_name.AbstractEngine.EntityManagement.EntityManager
 
 public class GameMaster extends ApplicationAdapter {
 
-    // Add EntityManager
-    private EntityManager entityManager;
     private boolean isInitialized = false;
 
     @Override
@@ -31,7 +29,12 @@ public class GameMaster extends ApplicationAdapter {
         System.out.println("GameMaster: Starting game...");
 
         // Initialize EntityManager
-        entityManager = new EntityManager();
+        EntityManager entityManager = EntityManager.getInstance(); // 👈 singleton
+        MainObject player = new MainObject();
+        simulatedObject enemy = new simulatedObject();
+        entityManager.addEntity(player);
+        entityManager.addEntity(enemy);
+        entityManager.start();
 
         isInitialized = true;
         System.out.println("GameMaster: Game started!");
@@ -44,26 +47,21 @@ public class GameMaster extends ApplicationAdapter {
         }
 
         // Update all entities
-        entityManager.updateAll(deltaTime);
+        EntityManager.getInstance().updateAll(deltaTime);
 
         // Render all entities
-        entityManager.renderAll();
+        EntityManager.getInstance().renderAll();
     }
 
     @Override
     public void dispose() {
         System.out.println("GameMaster: Cleaning up...");
 
-        if (entityManager != null) {
-            entityManager.clear();
+        if (EntityManager.getInstance() != null) {
+            EntityManager.getInstance().clear();
         }
 
         System.out.println("GameMaster: Cleanup complete!");
-    }
-
-    // Getter for EntityManager (so other classes can access it)
-    public EntityManager getEntityManager() {
-        return entityManager;
     }
 }
 
