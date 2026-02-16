@@ -1,54 +1,63 @@
 package io.github.some_example_name.AbstractEngine.EntityManagement;
 
-public class  Transform {
-    private float x, y, width, height;
+import com.badlogic.gdx.math.Vector2;
+
+public class Transform {
+
+    private Vector2 position;
+    private Vector2 size;
 
     public Transform(float x, float y, float width, float height) {
-        this.x = x;
-        this.y = y;
-        this.width = width;
-        this.height = height;
+        this.position = new Vector2(x, y);
+        this.size = new Vector2(width, height);
     }
 
     // Position
     public float getX() {
-        return x;
+        return position.x;
     }
 
     public void setX(float x) {
-        this.x = x;
+        position.x = x;
     }
 
     public float getY() {
-        return y;
+        return position.y;
     }
 
     public void setY(float y) {
-        this.y = y;
+        position.y = y;
     }
 
     // Size
     public float getWidth() {
-        return width;
+        return size.x;
     }
 
     public void setWidth(float width) {
-        this.width = width;
+        size.x = width;
     }
 
     public float getHeight() {
-        return height;
+        return size.y;
     }
 
     public void setHeight(float height) {
-        this.height = height;
+        size.y = height;
     }
 
     public void translate(float dx, float dy) {
-        x += dx;
-        y += dy;
+        position.add(dx, dy);
     }
 
+    public Vector2 getPosition() {
+        return position;
+    }
 
+    public Vector2 getSize() {
+        return size;
+    }
 }
+
+
 
