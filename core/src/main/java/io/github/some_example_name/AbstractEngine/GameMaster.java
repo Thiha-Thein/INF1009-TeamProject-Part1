@@ -4,69 +4,51 @@ import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 
 import io.github.some_example_name.AbstractEngine.EntityManagement.EntityManager;
+import io.github.some_example_name.AbstractEngine.ScreenManager.ScreenManager;
 
 public class GameMaster extends ApplicationAdapter {
 
-    // Add EntityManager
     private EntityManager entityManager;
+    private ScreenManager screenManager;
     private boolean isInitialized = false;
 
     @Override
-    public void create() {
-        start();
-    }
+    public void create() { start(); }
 
     @Override
     public void render() {
-        float deltaTime = Gdx.graphics.getDeltaTime();
-        update(deltaTime);
+        float dt = Gdx.graphics.getDeltaTime();
+        update(dt);
     }
 
-    // Unity-style Start method - called once at the beginning
     public void start() {
-        if (isInitialized) {
-            return;
-        }
+        if (isInitialized) return;
 
-        System.out.println("GameMaster: Starting game...");
-
-        // Initialize EntityManager
         entityManager = new EntityManager();
-        MainObject player = new MainObject();
-        entityManager.addEntity(player);
+        screenManager = new ScreenManager();
+
+        entityManager.init();
 
         isInitialized = true;
-        entityManager.init();
-        System.out.println("GameMaster: Game started!");
     }
 
-    // Unity-style Update method - called every frame
-    public void update(float deltaTime) {
-        if (!isInitialized) {
-            return;
-        }
+    public void update(float dt) {
+        if (!isInitialized) return;
 
-        // Update all entities
-        entityManager.updateAll(deltaTime);
+        screenManager.update(dt);
+        screenManager.render();
+    }
 
-        // Render all entities
-        entityManager.renderAll();
+    @Override
+    public void resize(int width, int height) {
+        if (screenManager != null) screenManager.resize(width, height);
     }
 
     @Override
     public void dispose() {
-        System.out.println("GameMaster: Cleaning up...");
-
-        if (entityManager != null) {
-            entityManager.clear();
-        }
-
-        System.out.println("GameMaster: Cleanup complete!");
+        if (entityManager != null) entityManager.clear();
     }
 
-    // Getter for EntityManager (so other classes can access it)
-    public EntityManager getEntityManager() {
-        return entityManager;
-    }
+    public EntityManager getEntityManager() { return entityManager; }
+    public ScreenManager getScreenManager() { return screenManager; }
 }
-
