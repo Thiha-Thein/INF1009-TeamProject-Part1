@@ -1,4 +1,4 @@
-package io.github.some_example_name.AbstractEngine;
+package io.github.some_example_name.Simulation;
 
 import com.badlogic.gdx.math.Vector2;
 import io.github.some_example_name.AbstractEngine.EntityManagement.*;
@@ -18,15 +18,8 @@ public class simulatedObject extends AbstractEntity implements ICollision {
 
     @Override
     public void start() {
-<<<<<<< Updated upstream:OOPPorject/core/src/main/java/io/github/some_example_name/AbstractEngine/simulatedObject.java
-        setTag("enemy");
-        transform = new Transform(0,0,32,32);
-        System.out.println("simulated enemy initialized");
-        EntityManager em = EntityManager.getInstance();
-=======
         setTag("ai");
         transform = new Transform(0, 500, 128, 128); // X will be set in resize()
->>>>>>> Stashed changes:core/src/main/java/io/github/some_example_name/Simulation/simulatedObject.java
 
         collider = new Collider(transform);
         addComponent(Collider.class, collider);
@@ -97,10 +90,5 @@ public class simulatedObject extends AbstractEntity implements ICollision {
 
     public MovementComponent getMovement() {
         return movement;
-    }
-
-    @Override
-    public void render() {
-
     }
 }

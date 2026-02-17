@@ -2,10 +2,10 @@ package io.github.some_example_name.AbstractEngine;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
-<<<<<<< Updated upstream
-import io.github.some_example_name.AbstractEngine.EntityManagement.EntityManager;
-=======
 import java.util.List;
 
 import io.github.some_example_name.AbstractEngine.EntityManagement.*;
@@ -16,12 +16,17 @@ import io.github.some_example_name.AbstractEngine.AudioManagement.*;
 import io.github.some_example_name.AbstractEngine.ScreenManagement.*;
 import io.github.some_example_name.AbstractEngine.ScreenManagement.ISimulation;
 import io.github.some_example_name.Simulation.*;
->>>>>>> Stashed changes
 
 public class GameMaster extends ApplicationAdapter {
 
-    // Add EntityManager
     private EntityManager entityManager;
+    private CollisionManager collisionManager;
+    private MovementManager movementManager;
+    private IOManager ioManager;
+    private SoundManager soundManager;
+    private ScreenManager screenManager;
+    private SpriteBatch batch;
+
     private boolean isInitialized = false;
 
     @Override
@@ -31,41 +36,13 @@ public class GameMaster extends ApplicationAdapter {
 
     @Override
     public void render() {
+        Gdx.gl.glClearColor(0.1f, 0.1f, 0.15f, 1);
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
         float deltaTime = Gdx.graphics.getDeltaTime();
         update(deltaTime);
     }
 
-<<<<<<< Updated upstream
-    // Unity-style Start method - called once at the beginning
-    public void start() {
-        if (isInitialized) {
-            return;
-        }
-
-        System.out.println("GameMaster: Starting game...");
-
-        // Initialize EntityManager
-        entityManager = new EntityManager();
-        MainObject player = new MainObject();
-        entityManager.addEntity(player);
-
-        isInitialized = true;
-        entityManager.init();
-        System.out.println("GameMaster: Game started!");
-    }
-
-    // Unity-style Update method - called every frame
-    public void update(float deltaTime) {
-        if (!isInitialized) {
-            return;
-        }
-
-        // Update all entities
-        entityManager.updateAll(deltaTime);
-
-        // Render all entities
-        entityManager.renderAll();
-=======
     // ===============================
     // Initialization
     // ===============================
@@ -157,7 +134,6 @@ public class GameMaster extends ApplicationAdapter {
     @Override
     public void resize(int width, int height) {
         screenManager.resize(width, height);
->>>>>>> Stashed changes
     }
 
     // ===============================
@@ -169,9 +145,6 @@ public class GameMaster extends ApplicationAdapter {
 
         System.out.println("GameMaster: Cleaning up...");
 
-<<<<<<< Updated upstream
-        if (entityManager != null) {
-=======
         if (screenManager != null)
             screenManager.dispose();
 
@@ -179,23 +152,12 @@ public class GameMaster extends ApplicationAdapter {
             soundManager.dispose();
 
         if (entityManager != null)
->>>>>>> Stashed changes
             entityManager.clear();
 
-<<<<<<< Updated upstream
-        System.out.println("GameMaster: Cleanup complete!");
-    }
-
-    // Getter for EntityManager (so other classes can access it)
-    public EntityManager getEntityManager() {
-        return entityManager;
-    }
-=======
         if (batch != null)
             batch.dispose();
 
         System.out.println("GameMaster: Cleanup complete!");
     }
->>>>>>> Stashed changes
 }
 
