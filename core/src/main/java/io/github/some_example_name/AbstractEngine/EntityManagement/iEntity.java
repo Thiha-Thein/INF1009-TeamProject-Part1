@@ -7,6 +7,10 @@ public interface iEntity {
     // Abstract update: subclasses MUST implement this
     void update(float deltaTime);
 
+<<<<<<< Updated upstream
     // Render method - called every frame
     void render();
+=======
+    void resize(int width, int height);
+>>>>>>> Stashed changes
 }
