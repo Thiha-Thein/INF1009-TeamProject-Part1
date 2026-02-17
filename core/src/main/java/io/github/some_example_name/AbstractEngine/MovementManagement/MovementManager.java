@@ -13,9 +13,7 @@ public class MovementManager {
 
         for (AbstractEntity entity : entities) {
 
-            MovementComponent movement =
-                entity.getComponent(MovementComponent.class);
-
+            MovementComponent movement = entity.getComponent(MovementComponent.class);
             if (movement == null) continue;
             movement.move(deltaTime);
         }

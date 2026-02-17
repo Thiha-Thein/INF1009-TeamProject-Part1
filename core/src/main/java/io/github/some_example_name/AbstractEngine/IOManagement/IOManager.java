@@ -9,7 +9,7 @@ import com.badlogic.gdx.Gdx;
 
 public class IOManager {
 
-    private final Map<String, InputBinding> bindings = new HashMap<>();
+    private final Map<String, Set<InputBinding>> bindings = new HashMap<>();
     private final Mouse mouse = new Mouse();
 
     private final Set<String> downActions = new HashSet<>();
@@ -17,12 +17,18 @@ public class IOManager {
     private final Set<String> justReleased = new HashSet<>();
 
     public void bindKey(String action, int keyCode) {
-        bindings.put(action, InputBinding.key(action, keyCode));
+        bindings
+            .computeIfAbsent(action, k -> new HashSet<>())
+            .add(InputBinding.key(action, keyCode));
     }
 
+
     public void bindMouse(String action, int button) {
-        bindings.put(action, InputBinding.mouse(action, button));
+        bindings
+            .computeIfAbsent(action, k -> new HashSet<>())
+            .add(InputBinding.mouse(action, button));
     }
+
 
     public void update() {
         justPressed.clear();
@@ -30,19 +36,30 @@ public class IOManager {
 
         mouse.update();
 
-        for (InputBinding b : bindings.values()) {
-            boolean isDownNow = isBindingDown(b);
-            boolean wasDownBefore = downActions.contains(b.action);
+        for (Map.Entry<String, Set<InputBinding>> entry : bindings.entrySet()) {
+
+            String action = entry.getKey();
+            boolean isDownNow = false;
+
+            for (InputBinding b : entry.getValue()) {
+                if (isBindingDown(b)) {
+                    isDownNow = true;
+                    break;
+                }
+            }
+
+            boolean wasDownBefore = downActions.contains(action);
 
             if (isDownNow && !wasDownBefore) {
-                justPressed.add(b.action);
-                downActions.add(b.action);
+                justPressed.add(action);
+                downActions.add(action);
             }
             else if (!isDownNow && wasDownBefore) {
-                justReleased.add(b.action);
-                downActions.remove(b.action);
+                justReleased.add(action);
+                downActions.remove(action);
             }
         }
+
     }
 
     private boolean isBindingDown(InputBinding b) {

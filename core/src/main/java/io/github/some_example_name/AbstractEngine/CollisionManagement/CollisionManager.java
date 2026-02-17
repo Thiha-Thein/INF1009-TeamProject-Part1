@@ -7,24 +7,35 @@ public class CollisionManager {
 
     private Set<CollisionPair> previousCollisions = new HashSet<>();
 
+    // 🔹 World bounds
+    private float worldWidth;
+    private float worldHeight;
+
+    // 🔹 Set world boundaries from simulation layer
+    public void setWorldBounds(float width, float height) {
+        this.worldWidth = width;
+        this.worldHeight = height;
+    }
+
     public void checkCollisions(List<AbstractEntity> entities) {
 
         Set<CollisionPair> currentCollisions = new HashSet<>();
 
+        // =====================================================
+        // 🔹 Entity-to-Entity Collision Detection
+        // =====================================================
         for (int i = 0; i < entities.size(); i++) {
             for (int j = i + 1; j < entities.size(); j++) {
 
                 AbstractEntity e1 = entities.get(i);
                 AbstractEntity e2 = entities.get(j);
 
-                // 🔹 Component-based detection
                 Collider colA = e1.getComponent(Collider.class);
                 Collider colB = e2.getComponent(Collider.class);
 
                 if (colA == null || colB == null)
                     continue;
 
-                // 🔹 Unity-style behaviour (must implement ICollision)
                 if (!(e1 instanceof ICollision) ||
                     !(e2 instanceof ICollision))
                     continue;
@@ -33,32 +44,61 @@ public class CollisionManager {
                 ICollision b = (ICollision) e2;
 
                 if (colA.isColliding(colB)) {
-
                     CollisionPair pair = new CollisionPair(a, b);
                     currentCollisions.add(pair);
 
                     if (!previousCollisions.contains(pair)) {
-                        a.onCollisionStart(b);
-                        b.onCollisionStart(a);
+                        a.onCollisionStart(e2); // Pass AbstractEntity directly!
+                        b.onCollisionStart(e1); // Pass AbstractEntity directly!
                     } else {
-                        a.onCollisionUpdate(b);
-                        b.onCollisionUpdate(a);
+                        a.onCollisionUpdate(e2);
+                        b.onCollisionUpdate(e1);
                     }
                 }
             }
         }
 
-        // 🔹 Handle Exit
+        //Collision Exit Detection
         for (CollisionPair oldPair : previousCollisions) {
             if (!currentCollisions.contains(oldPair)) {
-                oldPair.a.onCollisionExit(oldPair.b);
-                oldPair.b.onCollisionExit(oldPair.a);
+                oldPair.a.onCollisionExit((AbstractEntity) oldPair.b);
+                oldPair.b.onCollisionExit((AbstractEntity) oldPair.a);
             }
         }
 
         previousCollisions = currentCollisions;
+
+        //World Boundary Collision (Clamp)
+        for (AbstractEntity entity : entities) {
+            checkWorldBounds(entity);
+        }
     }
 
+    //World Boundary Check
+    private void checkWorldBounds(AbstractEntity entity) {
+
+        Transform t = entity.getTransform();
+        if (t == null) return;
+
+        float x = t.getX();
+        float y = t.getY();
+        float width = t.getWidth();
+        float height = t.getHeight();
+
+        if (x < 0)
+            t.setX(0);
+
+        if (y < 0)
+            t.setY(0);
+
+        if (x + width > worldWidth)
+            t.setX(worldWidth - width);
+
+        if (y + height > worldHeight)
+            t.setY(worldHeight - height);
+    }
+
+    //Internal Collision Pair Class
     private static class CollisionPair {
 
         ICollision a;
@@ -81,7 +121,6 @@ public class CollisionManager {
                 (a == other.b && b == other.a);
         }
 
-
         @Override
         public int hashCode() {
             return System.identityHashCode(a) +
@@ -89,5 +128,6 @@ public class CollisionManager {
         }
     }
 }
+
 
 
