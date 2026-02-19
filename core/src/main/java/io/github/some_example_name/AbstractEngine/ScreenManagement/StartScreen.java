@@ -11,10 +11,12 @@ import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
 import io.github.some_example_name.AbstractEngine.IOManagement.IOManager;
+import io.github.some_example_name.AbstractEngine.AudioManagement.SoundManager;
 
 public class StartScreen extends AbstractScreen {
 
     private final IOManager ioManager;
+    private final SoundManager soundManager;
 
     private SpriteBatch batch;
     private Texture backgroundTexture;
@@ -26,16 +28,18 @@ public class StartScreen extends AbstractScreen {
     private float startX, startY;
     private float quitX, quitY;
 
-    public StartScreen(ScreenManager manager, IOManager ioManager, SpriteBatch batch) {
+    public StartScreen(ScreenManager manager, IOManager ioManager, SpriteBatch batch, SoundManager soundManager) {
         super(manager);
         this.ioManager = ioManager;
+        this.batch = batch;
+        this.soundManager = soundManager;
     }
 
     @Override
     public void show() {
-        batch = new SpriteBatch();
         backgroundTexture = new Texture("environment/Blue.png");
         viewport = new ScreenViewport();
+        soundManager.playMusic("menu_bgm", true);
 
         resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
     }
@@ -74,9 +78,12 @@ public class StartScreen extends AbstractScreen {
             );
 
             if (isInside(mouse.x, mouse.y, startX, startY, startLayout)) {
+                soundManager.playSound("ui_click");
+                soundManager.playMusic("game_bgm", true);
                 manager.setScreen("simulation");
             }
             if (isInside(mouse.x, mouse.y, quitX, quitY, quitLayout)) {
+                soundManager.playSound("ui_click");
                 Gdx.app.exit();
             }
         }
@@ -115,7 +122,6 @@ public class StartScreen extends AbstractScreen {
 
     @Override
     public void dispose() {
-        if (batch != null) batch.dispose();
         if (font != null) font.dispose();
         if (backgroundTexture != null) backgroundTexture.dispose();
     }
@@ -126,4 +132,3 @@ public class StartScreen extends AbstractScreen {
     @Override
     public void resume() {}
 }
-

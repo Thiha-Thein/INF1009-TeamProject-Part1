@@ -31,11 +31,10 @@ public class SimWorld implements ISimulation {
     @Override
     public void initialize() {
         EnvironmentObj background = new EnvironmentObj(soundManager);
-        MainObject player = new MainObject(ioManager);
+        MainObject player = new MainObject();
         ballObj ball = new ballObj();
         simulatedObject ai = new simulatedObject(ball);
-        soundManager.setVolume(10);
-        soundManager.playMusic("elbm", true);
+        soundManager.setVolume(1.0f);
         entityManager.addEntity(background);
         entityManager.addEntity(player);
         entityManager.addEntity(ball);

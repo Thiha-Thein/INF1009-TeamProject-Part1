@@ -9,7 +9,8 @@ import com.badlogic.gdx.Gdx;
 
 public class IOManager {
 
-    private final Map<String, Set<InputBinding>> bindings = new HashMap<>();
+    private final Map<String, InputBinding> bindings = new HashMap<>();
+    private final Keyboard keyboard = new Keyboard();
     private final Mouse mouse = new Mouse();
 
     private final Set<String> downActions = new HashSet<>();
@@ -17,49 +18,32 @@ public class IOManager {
     private final Set<String> justReleased = new HashSet<>();
 
     public void bindKey(String action, int keyCode) {
-        bindings
-            .computeIfAbsent(action, k -> new HashSet<>())
-            .add(InputBinding.key(action, keyCode));
+        bindings.put(action, InputBinding.key(action, keyCode));
     }
-
 
     public void bindMouse(String action, int button) {
-        bindings
-            .computeIfAbsent(action, k -> new HashSet<>())
-            .add(InputBinding.mouse(action, button));
+        bindings.put(action, InputBinding.mouse(action, button));
     }
-
 
     public void update() {
         justPressed.clear();
         justReleased.clear();
 
+        keyboard.update();
         mouse.update();
 
-        for (Map.Entry<String, Set<InputBinding>> entry : bindings.entrySet()) {
+        for (InputBinding b : bindings.values()) {
+            boolean downNow = isBindingDown(b);
+            boolean downBefore = downActions.contains(b.action);
 
-            String action = entry.getKey();
-            boolean isDownNow = false;
-
-            for (InputBinding b : entry.getValue()) {
-                if (isBindingDown(b)) {
-                    isDownNow = true;
-                    break;
-                }
-            }
-
-            boolean wasDownBefore = downActions.contains(action);
-
-            if (isDownNow && !wasDownBefore) {
-                justPressed.add(action);
-                downActions.add(action);
-            }
-            else if (!isDownNow && wasDownBefore) {
-                justReleased.add(action);
-                downActions.remove(action);
+            if (downNow && !downBefore) {
+                downActions.add(b.action);
+                justPressed.add(b.action);
+            } else if (!downNow && downBefore) {
+                downActions.remove(b.action);
+                justReleased.add(b.action);
             }
         }
-
     }
 
     private boolean isBindingDown(InputBinding b) {
@@ -68,32 +52,15 @@ public class IOManager {
                 return Gdx.input.isKeyPressed(b.keyCode);
             case MOUSE_BUTTON:
                 return Gdx.input.isButtonPressed(b.mouseButton);
+            default:
+                return false;
         }
-        return false;
     }
 
-    public boolean isDown(String action) {
-        return downActions.contains(action);
-    }
+    public boolean isDown(String action) { return downActions.contains(action); }
+    public boolean wasPressed(String action) { return justPressed.contains(action); }
+    public boolean wasReleased(String action) { return justReleased.contains(action); }
 
-    public boolean wasPressed(String action) {
-        return justPressed.contains(action);
-    }
-
-    public boolean wasReleased(String action) {
-        return justReleased.contains(action);
-    }
-
-    public int getMouseX() {
-        return mouse.getX();
-    }
-
-    public int getMouseY() {
-        return mouse.getY();
-    }
-
-    public Mouse getMouse() {
-        return mouse;
-    }
+    public int getMouseX() { return mouse.getX(); }
+    public int getMouseY() { return mouse.getY(); }
 }
-

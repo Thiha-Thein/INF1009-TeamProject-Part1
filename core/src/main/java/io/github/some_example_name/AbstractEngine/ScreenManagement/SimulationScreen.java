@@ -12,6 +12,7 @@ import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
 import io.github.some_example_name.AbstractEngine.IOManagement.IOManager;
+import io.github.some_example_name.AbstractEngine.AudioManagement.SoundManager;
 
 public class SimulationScreen extends AbstractScreen {
 
@@ -19,6 +20,7 @@ public class SimulationScreen extends AbstractScreen {
     private Viewport viewport;
     private ISimulation world;
     private final IOManager ioManager;
+    private final SoundManager soundManager;
 
     // Quit button
     private BitmapFont font;
@@ -26,13 +28,15 @@ public class SimulationScreen extends AbstractScreen {
     private float quitX, quitY;
 
     public SimulationScreen(ScreenManager manager,
-                            SpriteBatch batch,
-                            ISimulation world,
-                            IOManager ioManager) {
-        super(manager);
-        this.batch = batch;
-        this.world = world;
-        this.ioManager = ioManager;
+            				SpriteBatch batch,
+            				ISimulation world,
+            				IOManager ioManager,
+            				SoundManager soundManager) {
+    	super(manager);
+    	this.batch = batch;
+    	this.world = world;
+    	this.ioManager = ioManager;
+    	this.soundManager = soundManager;
     }
 
     @Override
@@ -79,7 +83,9 @@ public class SimulationScreen extends AbstractScreen {
             );
 
             if (isInside(mouse.x, mouse.y, quitX, quitY, quitLayout)) {
-                manager.setScreen("start"); // Go back to start screen
+                soundManager.playSound("ui_click");
+                soundManager.playMusic("menu_bgm", true);
+                manager.setScreen("start");
             }
         }
     }
@@ -116,4 +122,3 @@ public class SimulationScreen extends AbstractScreen {
     @Override public void pause() {}
     @Override public void resume() {}
 }
-

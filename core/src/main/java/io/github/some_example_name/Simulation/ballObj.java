@@ -104,6 +104,3 @@ public class ballObj extends AbstractEntity implements ICollision {
         return collider;
     }
 }
-
-
-

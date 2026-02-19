@@ -7,34 +7,26 @@ public class SoundEffect {
     private final Sound sound;
     private float volume = 1.0f;
 
-    private long lastPlayId = -1;
-
     public SoundEffect(String id, Sound sound) {
         this.id = id;
         this.sound = sound;
     }
 
-    public String getId() { return id; }
-
-    public void setVolume(float volume) {
-        this.volume = Math.max(0f, Math.min(1f, volume));
-    }
-
     public float getVolume() { return volume; }
 
-    public void play(float finalVolume) {
-        lastPlayId = sound.play(finalVolume);
+    public void setVolume(float volume) {
+        this.volume = clamp01(volume);
     }
 
-    public void stop() {
-        if (lastPlayId != -1) {
-            sound.stop(lastPlayId);
-        } else {
-            sound.stop();
-        }
+    public void play(float finalVolume) {
+        sound.play(clamp01(finalVolume));
     }
 
     public void dispose() {
         sound.dispose();
+    }
+
+    private float clamp01(float v) {
+        return Math.max(0f, Math.min(1f, v));
     }
 }

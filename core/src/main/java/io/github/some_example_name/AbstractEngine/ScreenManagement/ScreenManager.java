@@ -120,4 +120,3 @@ public class ScreenManager implements Disposable {
         screens.clear();
     }
 }
-

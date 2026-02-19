@@ -6,7 +6,7 @@ public class InputBinding {
     public final int keyCode;
     public final int mouseButton;
 
-    public InputBinding(String action, InputType type, int keyCode, int mouseButton) {
+    private InputBinding(String action, InputType type, int keyCode, int mouseButton) {
         this.action = action;
         this.type = type;
         this.keyCode = keyCode;
