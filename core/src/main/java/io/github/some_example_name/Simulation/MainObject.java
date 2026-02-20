@@ -46,8 +46,6 @@ public class MainObject extends AbstractEntity implements ICollision {
 
         if (input.isDown("moveUp")) y += 1;
         if (input.isDown("moveDown")) y -= 1;
-        if (input.isDown("moveRight")) x += 1;
-        if (input.isDown("moveLeft")) x -= 1;
 
         movement.setDirection(new Vector2(x, y));
 
@@ -61,10 +59,20 @@ public class MainObject extends AbstractEntity implements ICollision {
     public Collider getCollider() {
         return collider;
     }
-    
+
     @Override
-    public void resize(int width, int height) {}
-    
+    public void resize(int width, int height) {
+        float size = width * 0.1f;
+        transform.setWidth(size);
+        transform.setHeight(size);
+
+        float baseSpeed = 900f;
+        float referenceWidth = 1920f;
+        float scaledSpeed = baseSpeed * (width / referenceWidth);
+
+        movement.setSpeed(scaledSpeed);
+    }
+
     @Override public void onCollisionStart(AbstractEntity other) {}
     @Override public void onCollisionUpdate(AbstractEntity other) {}
     @Override public void onCollisionExit(AbstractEntity other) {}
