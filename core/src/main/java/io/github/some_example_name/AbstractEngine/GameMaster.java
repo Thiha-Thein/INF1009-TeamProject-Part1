@@ -4,10 +4,11 @@ import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-
 import java.util.List;
 
+import io.github.some_example_name.AbstractEngine.AIManagement.*;
 import io.github.some_example_name.AbstractEngine.AudioManagement.*;
 import io.github.some_example_name.AbstractEngine.CollisionManagement.*;
 import io.github.some_example_name.AbstractEngine.EntityManagement.*;
@@ -15,29 +16,47 @@ import io.github.some_example_name.AbstractEngine.IOManagement.*;
 import io.github.some_example_name.AbstractEngine.MovementManagement.*;
 import io.github.some_example_name.AbstractEngine.ScreenManagement.*;
 import io.github.some_example_name.AbstractEngine.ScreenManagement.ISimulation;
-import io.github.some_example_name.Simulation.*;
+import io.github.some_example_name.SolarSystemSimulation.*;
 
 public class GameMaster extends ApplicationAdapter {
 
     private EntityManager entityManager;
     private CollisionManager collisionManager;
     private MovementManager movementManager;
-
     private IOManager ioManager;
     private InputSystem inputSystem;
-
     private SoundManager soundManager;
     private AudioSystem audioSystem; //to be used in the future
-
     private ScreenManager screenManager;
+    private AIManager aiManager;
 
     private SpriteBatch batch;
 
-    private boolean isInitialized = false;
+
+
+    // Dependencies constructed here — no graphics context needed
+    public GameMaster() {
+        entityManager = new EntityManager();
+        collisionManager = new CollisionManager();
+        movementManager = new MovementManager();
+        ioManager = new IOManager();
+        inputSystem = new InputSystem(ioManager);
+        soundManager = new SoundManager();
+        audioSystem = new AudioSystem(soundManager);
+        screenManager = new ScreenManager();
+        aiManager = new AIManager();
+    }
 
     @Override
     public void create() {
-        start();
+
+        System.out.println("GameMaster: Starting game...");
+        batch = new SpriteBatch();
+        initializeInput();
+        initializeAudio();
+        initializeScreens();
+
+        System.out.println("GameMaster: Game started!");
     }
 
     @Override
@@ -49,50 +68,15 @@ public class GameMaster extends ApplicationAdapter {
         update(deltaTime);
     }
 
-    public void start() {
-        if (isInitialized) return;
-
-        System.out.println("GameMaster: Starting game...");
-        batch = new SpriteBatch();
-
-        initializeManagers();
-        initializeInput();
-        initializeAudio();
-        initializeScreens();
-
-        isInitialized = true;
-        System.out.println("GameMaster: Game started!");
-    }
-
-    private void initializeManagers() {
-        entityManager = new EntityManager();
-        collisionManager = new CollisionManager();
-        movementManager = new MovementManager();
-
-        ioManager = new IOManager();
-        inputSystem = new InputSystem(ioManager);
-
-        soundManager = new SoundManager();
-        audioSystem = new AudioSystem(soundManager);
-
-        screenManager = new ScreenManager();
-    }
-
     private void initializeScreens() {
 
-        StartScreen startScreen =
-            new StartScreen(screenManager, ioManager, batch, soundManager);
-
-        ISimulation level1World = new SimWorld(
-            entityManager,
-            movementManager,
-            collisionManager,
-            soundManager,
-            ioManager
+        SimulationScreen simulationScreen = new SimulationScreen(
+            screenManager, batch, ioManager, soundManager,
+            entityManager, aiManager, movementManager, collisionManager
         );
 
-        SimulationScreen simulationScreen =
-            new SimulationScreen(screenManager, batch, level1World, ioManager, soundManager);
+        StartScreen startScreen =
+            new StartScreen(screenManager, ioManager, batch, soundManager, simulationScreen);
 
         screenManager.addScreen("start", startScreen);
         screenManager.addScreen("simulation", simulationScreen);
@@ -113,31 +97,28 @@ public class GameMaster extends ApplicationAdapter {
 
     private void initializeAudio() {
         soundManager.loadMusic("menu_bgm", "music/menu.mp3");
-        soundManager.loadMusic("game_bgm", "music/game.mp3");
+        soundManager.loadMusic("interstellarBGM", "music/solarSimulationMusic.mp3");
 
         soundManager.loadSound("ui_click", "sfx/click.mp3");
 
         //Game music volume control
-        soundManager.getMusicTrack("menu_bgm").setVolume(0.6f);  
-        soundManager.getMusicTrack("game_bgm").setVolume(0.2f); 
+        soundManager.getMusicTrack("menu_bgm").setVolume(0.05f);
+        soundManager.getMusicTrack("interstellarBGM").setVolume(0.2f);
 
         soundManager.playMusic("menu_bgm", true);
     }
 
     public void update(float deltaTime) {
-        if (!isInitialized) return;
 
         List<AbstractEntity> entities = entityManager.getEntities();
 
         ioManager.update();
+        aiManager.update(entities, deltaTime);
         inputSystem.update(entities);
-
         movementManager.update(entities, deltaTime);
         collisionManager.checkCollisions(entities);
-
         entityManager.updateAll(deltaTime);
         audioSystem.update(entities);
-
         screenManager.update(deltaTime);
         screenManager.render();
     }

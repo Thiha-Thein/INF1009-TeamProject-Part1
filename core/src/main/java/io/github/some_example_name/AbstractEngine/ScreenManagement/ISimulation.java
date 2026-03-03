@@ -1,4 +1,5 @@
 package io.github.some_example_name.AbstractEngine.ScreenManagement;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
 public interface ISimulation {
@@ -7,4 +8,6 @@ public interface ISimulation {
     void render(SpriteBatch batch);   // draw entities
     void resize(int width, int height);
     void dispose();                   // cleanup
+    Texture getBackground();
 }
+

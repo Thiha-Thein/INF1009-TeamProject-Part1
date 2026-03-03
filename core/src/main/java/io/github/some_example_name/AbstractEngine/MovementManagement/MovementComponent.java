@@ -19,10 +19,8 @@ public class MovementComponent {
     }
 
     public void move(float deltaTime) {
-
         if (direction.isZero()) return;
-
-        Vector2 scaled = direction.nor().scl(speed * deltaTime);
+        Vector2 scaled = direction.cpy().nor().scl(speed * deltaTime);
         transform.translate(scaled.x, scaled.y);
     }
 

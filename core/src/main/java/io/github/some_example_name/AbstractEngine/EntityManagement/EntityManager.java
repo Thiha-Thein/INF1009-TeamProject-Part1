@@ -26,9 +26,9 @@ public class EntityManager {
     }
 
     public void start(){
+        System.out.println("Entity Manager: Started");
         for (AbstractEntity e: EntityArrayList){
             if (e.isActive()) {
-                System.out.println("Entity Manager: Started");
                 e.start();
             }
         }
@@ -37,9 +37,14 @@ public class EntityManager {
     public void updateAll(float deltaTime){
         for (AbstractEntity e: EntityArrayList){
             if (e.isActive()) {
+                if (e.getAnimationRenderer() != null) {
+                    e.getAnimationRenderer().update(deltaTime);  // ADD THIS
+                }
                 e.update(deltaTime);
             }
         }
+        // remove entities flagged for removal after update loop
+        EntityArrayList.removeIf(AbstractEntity::isPendingRemoval);
     }
 
     public void renderAll(SpriteBatch batch){

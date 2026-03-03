@@ -10,8 +10,8 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
-import io.github.some_example_name.AbstractEngine.IOManagement.IOManager;
-import io.github.some_example_name.AbstractEngine.AudioManagement.SoundManager;
+import io.github.some_example_name.AbstractEngine.IOManagement.*;
+import io.github.some_example_name.AbstractEngine.AudioManagement.*;
 
 public class StartScreen extends AbstractScreen {
 
@@ -21,18 +21,18 @@ public class StartScreen extends AbstractScreen {
     private SpriteBatch batch;
     private Texture backgroundTexture;
     private BitmapFont font;
-    private GlyphLayout startLayout;
-    private GlyphLayout quitLayout;
+    private GlyphLayout solarLayout, wordSlayerLayout,quitLayout;
     private Viewport viewport;
 
-    private float startX, startY;
-    private float quitX, quitY;
+    private float solarX, solarY, quitX, quitY, wordX, wordY;
+    private final SimulationScreen simulationScreen;
 
-    public StartScreen(ScreenManager manager, IOManager ioManager, SpriteBatch batch, SoundManager soundManager) {
+    public StartScreen(ScreenManager manager, IOManager ioManager, SpriteBatch batch, SoundManager soundManager, SimulationScreen simulationScreen) {
         super(manager);
         this.ioManager = ioManager;
         this.batch = batch;
         this.soundManager = soundManager;
+        this.simulationScreen = simulationScreen;
     }
 
     @Override
@@ -60,14 +60,23 @@ public class StartScreen extends AbstractScreen {
         font = generator.generateFont(parameter);
         generator.dispose();
 
-        startLayout = new GlyphLayout(font, "START");
+        solarLayout = new GlyphLayout(font, "SIMULATION");
+        wordSlayerLayout = new GlyphLayout(font, "GAME");
         quitLayout = new GlyphLayout(font, "QUIT");
 
-        startX = (width - startLayout.width) / 2f;
-        startY = height / 2f + startLayout.height;
+        float centerX = width / 2f;
+        float centerY = height / 2f;
 
-        quitX = (width - quitLayout.width) / 2f;
-        quitY = height / 2f - quitLayout.height * 2f;
+        float spacing = 200f; // vertical spacing between buttons
+
+        solarX = centerX - solarLayout.width / 2f;
+        solarY = centerY + spacing;
+
+        wordX = centerX - wordSlayerLayout.width / 2f;
+        wordY = centerY;
+
+        quitX = centerX - quitLayout.width / 2f;
+        quitY = centerY - spacing;
     }
 
     @Override
@@ -77,11 +86,18 @@ public class StartScreen extends AbstractScreen {
                 new Vector2(ioManager.getMouseX(), ioManager.getMouseY())
             );
 
-            if (isInside(mouse.x, mouse.y, startX, startY, startLayout)) {
+            if (isInside(mouse.x, mouse.y, solarX, solarY, solarLayout)) {
                 soundManager.playSound("ui_click");
-                soundManager.playMusic("game_bgm", true);
+                simulationScreen.loadWorld("solarSystem");
                 manager.setScreen("simulation");
             }
+
+            if (isInside(mouse.x, mouse.y, wordX, wordY, wordSlayerLayout)) {
+                soundManager.playSound("ui_click");
+                simulationScreen.loadWorld("wordSlayer");
+                manager.setScreen("simulation");
+            }
+
             if (isInside(mouse.x, mouse.y, quitX, quitY, quitLayout)) {
                 soundManager.playSound("ui_click");
                 Gdx.app.exit();
@@ -111,14 +127,15 @@ public class StartScreen extends AbstractScreen {
             }
         }
 
-        font.draw(batch, startLayout, startX, startY);
+        font.draw(batch, solarLayout, solarX, solarY);
+        font.draw(batch, wordSlayerLayout, wordX, wordY);
         font.draw(batch, quitLayout, quitX, quitY);
 
         batch.end();
     }
 
     @Override
-    public void hide() { dispose(); }
+    public void hide() {}
 
     @Override
     public void dispose() {
