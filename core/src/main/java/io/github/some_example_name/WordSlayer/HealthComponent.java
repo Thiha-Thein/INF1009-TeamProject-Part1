@@ -16,6 +16,8 @@ public class HealthComponent {
     private final BarType type;
     private final Texture bg;
     private final Texture fill;
+    private static final float BASE_WIDTH = 2560f;
+    private static final float BASE_HEIGHT = 1440f;
 
     public HealthComponent(float maxHP, BarType type, String bgPath, String fillPath) {
         this.maxHP     = maxHP;
@@ -34,18 +36,30 @@ public class HealthComponent {
     }
 
     public void render(SpriteBatch batch, float x, float y, float screenWidth, float screenHeight) {
+        float scaleX = screenWidth / BASE_WIDTH;
+        float scaleY = screenHeight / BASE_HEIGHT;
+
+        // Usually use the smaller one to keep proportions correct
+        float scale = Math.min(scaleX, scaleY);
         switch (type) {
-            case PLAYER: renderPlayerBar(batch, screenHeight); break;
+            case PLAYER: renderPlayerBar(batch, screenWidth, screenHeight); break;
             case ENEMY:  renderEnemyBar(batch, x, y);         break;
             case BOSS:   renderBossBar(batch, screenWidth, screenHeight); break;
         }
     }
 
-    private void renderPlayerBar(SpriteBatch batch, float screenHeight) {
-        float barWidth  = 50f * 2.5f;
-        float barHeight = 250f * 2.5f;
-        float x = 20f;
-        float y = screenHeight / 2f - barHeight / 2f - 400f;
+    private void renderPlayerBar(SpriteBatch batch, float screenWidth, float screenHeight) {
+
+        float scaleX = screenWidth / 2560f;
+        float scaleY = screenHeight / 1440f;
+        float scale = Math.min(scaleX, scaleY);
+
+        // Original 1440p values
+        float barWidth  = 50f * 2.5f * scale;
+        float barHeight = 250f * 2.5f * scale;
+
+        float x = 20f * scale;
+        float y = (screenHeight / 2f - barHeight / 2f) - (400f * scale);
 
         batch.draw(bg, x, y, barWidth, barHeight);
 

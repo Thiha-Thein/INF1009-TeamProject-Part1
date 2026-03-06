@@ -76,7 +76,9 @@ public class PlanetObj extends AbstractEntity implements ICollision {
 
         AnimationRenderer ar = new AnimationRenderer();
         ar.addAnimation("spin", spritePath, 30, 8, 0.08f, true);
+
         setAnimationRenderer(ar);
+        addComponent(AnimationRenderer.class, ar); // <-- ADD THIS LINE
     }
 
     @Override

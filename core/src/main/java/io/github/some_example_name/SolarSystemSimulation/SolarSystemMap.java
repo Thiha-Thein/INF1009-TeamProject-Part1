@@ -59,35 +59,44 @@ public class SolarSystemMap implements ISimulation {
         PlanetObj sun = new PlanetObj("Sun", 1000f, 600f, "planets/sun.png", null);
         sun.setInitialPosition((screenWidth - 600f) / 2f, (screenHeight - 600f) / 2f);
 
-        PlanetObj lava   = planetFactory.create("Lava",      8f,  60f,  "planets/lavaworld.png",      sun, 0, 0f);
-        PlanetObj dry    = planetFactory.create("Dry",       12f, 70f,  "planets/drywasteland.png",   sun, 1, 45f);
-        PlanetObj earth  = planetFactory.create("Earth",     15f, 80f,  "planets/earth.png",          sun, 2, 90f);
-        PlanetObj elike  = planetFactory.create("EarthLike", 13f, 75f,  "planets/earthlookalike.png", sun, 3, 135f);
-        PlanetObj crater = planetFactory.create("Crater",    20f, 85f,  "planets/craterplanet.png",   sun, 4, 180f);
-        PlanetObj gas    = planetFactory.create("Gas",       50f, 200f, "planets/gasstar.png",        sun, 5, 225f);
-        PlanetObj saturn = planetFactory.create("Saturn",    45f, 250f, "planets/saturn.png",         sun, 6, 270f);
-        PlanetObj ice    = planetFactory.create("Ice",       10f, 70f,  "planets/iceworld.png",       sun, 7, 315f);
+// inner rocky planets
+        PlanetObj mercury = planetFactory.create("Mercury", 18f, 50f,  "planets/mercury.png",  sun, 0, 0f);
+        PlanetObj venus   = planetFactory.create("Venus",   27f, 65f,  "planets/venus.png",    sun, 1, 45f);
+        PlanetObj earth   = planetFactory.create("Earth",   30f, 70f,  "planets/earth.png",    sun, 2, 90f);
+        PlanetObj mars    = planetFactory.create("Mars",    24f, 55f,  "planets/mars.png",     sun, 3, 135f);
+
+// gas giants
+        PlanetObj jupiter = planetFactory.create("Jupiter", 90f, 170f, "planets/jupiter.png",  sun, 4, 180f);
+        PlanetObj saturn  = planetFactory.create("Saturn",  78f, 140f, "planets/saturn.png",   sun, 5, 225f);
+
+// ice giants
+        PlanetObj uranus  = planetFactory.create("Uranus",  36f, 105f, "planets/uranus.png",   sun, 6, 270f);
+        PlanetObj neptune = planetFactory.create("Neptune", 33f, 100f, "planets/neptune.png",  sun, 7, 315f);
+
 
         // set initial positions to sun center
-        lava.setInitialPosition(cx, cy);
-        dry.setInitialPosition(cx, cy);
+        mercury.setInitialPosition(cx, cy);
+        venus.setInitialPosition(cx, cy);
         earth.setInitialPosition(cx, cy);
-        elike.setInitialPosition(cx, cy);
-        crater.setInitialPosition(cx, cy);
-        gas.setInitialPosition(cx, cy);
+        mars.setInitialPosition(cx, cy);
+        jupiter.setInitialPosition(cx, cy);
         saturn.setInitialPosition(cx, cy);
-        ice.setInitialPosition(cx, cy);
+        uranus.setInitialPosition(cx, cy);
+        neptune.setInitialPosition(cx, cy);
 
         entityManager.addEntity(sun);
-        entityManager.addEntity(ice);      // furthest first
+
+        entityManager.addEntity(neptune);   // furthest first
+        entityManager.addEntity(uranus);
         entityManager.addEntity(saturn);
-        entityManager.addEntity(gas);
-        entityManager.addEntity(crater);
-        entityManager.addEntity(elike);
+        entityManager.addEntity(jupiter);
+        entityManager.addEntity(mars);
         entityManager.addEntity(earth);
-        entityManager.addEntity(dry);
-        entityManager.addEntity(lava);     // closest last
+        entityManager.addEntity(venus);
+        entityManager.addEntity(mercury);   // closest last
+
         entityManager.start();
+        saturn.getAnimationRenderer().setScale(2.5f);
     }
 
     @Override
