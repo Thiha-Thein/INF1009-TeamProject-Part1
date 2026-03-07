@@ -2,9 +2,12 @@ package io.github.some_example_name.SolarSystemSimulation.PlanetInteractive;
 
 import io.github.some_example_name.SolarSystemSimulation.PlanetObj;
 
+// Calculates display heights for two planets in size comparison mode
+// Uses real relative diameters (Earth = 1.0) with log compression when the Sun is involved
+// to keep comparisons visually readable despite the 109x size gap between the Sun and Earth
 public class PlanetSizeComparator {
 
-    // real relative diameters (Earth = 1.0)
+    // Real relative diameters with Earth = 1.0 as the baseline
     private static final String[] NAMES = {
         "Sun", "Mercury", "Venus", "Earth", "Mars",
         "Jupiter", "Saturn", "Uranus", "Neptune"
@@ -12,30 +15,30 @@ public class PlanetSizeComparator {
 
     private static final float[] TRUE_DIAMETERS = {
         109.0f,  // Sun
-        0.38f, // Mercury
-        0.95f, // Venus
-        1.00f, // Earth
-        0.53f, // Mars
-        11.21f, // Jupiter
-        9.45f, // Saturn
-        4.01f, // Uranus
-        3.88f, // Neptune
+        0.38f,   // Mercury
+        0.95f,   // Venus
+        1.00f,   // Earth
+        0.53f,   // Mars
+        11.21f,  // Jupiter
+        9.45f,   // Saturn
+        4.01f,   // Uranus
+        3.88f,   // Neptune
     };
 
-    // larger planet fills this fraction of screen height
+    // The larger planet fills this fraction of screen height in comparison mode
     private static final float MAX_DISPLAY_FRACTION = 0.30f;
 
-    // smaller planet never goes below this so it stays visible
+    // The smaller planet never drops below this fraction so it always remains visible
     private static final float MIN_DISPLAY_FRACTION = 0.06f;
 
-    // sun sprite is textured smaller than planets so we compensate visually
+    // The Sun's sprite is textured to appear smaller than its actual planet data size — this multiplier compensates
     private static final float SUN_SPRITE_COMPENSATION = 1.6f;
 
-    // log base used when sun is involved — softens the 109x gap so planets stay readable
+    // Log base used when the Sun is in a comparison — softens the extreme 109x ratio so smaller planets are still readable
     private static final float LOG_BASE = 4.0f;
 
 
-    // looks up true diameter by planet name, falls back to 1.0 if unknown
+    // Returns the true diameter for a planet by name — falls back to 1.0 (Earth-sized) for unknown names
     public static float getTrueDiameter(String name) {
         for (int i = 0; i < NAMES.length; i++) {
             if (NAMES[i].equalsIgnoreCase(name))
@@ -44,16 +47,16 @@ public class PlanetSizeComparator {
         return 1.0f;
     }
 
-    // applies log compression when the size gap is extreme (i.e. sun is involved)
+    // Applies logarithmic compression to the diameter when the Sun is one of the compared planets
+    // Without this, Earth-sized planets would render below the minimum visible size
     private float compressDiameter(float diameter, boolean sunInvolved) {
         if (!sunInvolved)
             return diameter;
-        // log compression keeps relative differences visible without destroying small planets
         return (float)(Math.log(diameter + 1) / Math.log(LOG_BASE));
     }
 
-    // returns { selectedH, compareH } — larger anchors to MAX, smaller scales down from there
-    // returns { selectedH, compareH } — larger anchors to MAX, smaller scales down from there
+    // Returns { selectedDisplayHeight, compareDisplayHeight } in screen pixels
+    // The larger body anchors to MAX_DISPLAY_FRACTION of screen height; the smaller scales proportionally from there
     public float[] getDisplayHeights(PlanetObj selected, PlanetObj compare, float screenHeight) {
 
         if (selected == null || compare == null)
@@ -63,7 +66,7 @@ public class PlanetSizeComparator {
         float selDiam = getTrueDiameter(selected.getPlanetName());
         float cmpDiam = getTrueDiameter(compare.getPlanetName());
 
-        // check if sun is either party — triggers log compression
+        // Sun-involved comparisons use log compression to prevent extreme size ratios
         boolean sunInvolved = "Sun".equalsIgnoreCase(selected.getPlanetName())
             || "Sun".equalsIgnoreCase(compare.getPlanetName());
 
@@ -76,21 +79,21 @@ public class PlanetSizeComparator {
         float maxDisplay = screenHeight * MAX_DISPLAY_FRACTION;
         float minDisplay = screenHeight * MIN_DISPLAY_FRACTION;
 
-        // scale so the bigger compressed value fills maxDisplay
+        // Scale factor maps the largest compressed value to maxDisplay
         float scale = maxDisplay / maxCompressed;
 
         float largerH  = maxDisplay;
-        float smallerH = Math.max(minCompressed * scale, minDisplay);
+        float smallerH = Math.max(minCompressed * scale, minDisplay); // floor at minimum so it stays visible
 
-        // assign back to selected vs compare
+        // Assign heights back to the correct planet
         float selectedH = (selCompressed >= cmpCompressed) ? largerH : smallerH;
         float compareH  = (cmpCompressed >= selCompressed) ? largerH : smallerH;
 
-        // when sun is selected, shrink the compare planet a bit more so the size gap reads clearly
+        // When the Sun is selected, shrink the compare planet further to make the scale difference more apparent
         if ("Sun".equalsIgnoreCase(selected.getPlanetName()))
             compareH *= 0.55f;
 
-        // compensate for the sun sprite being textured smaller than other planet sprites
+        // Compensate for the Sun sprite being textured smaller than its true proportional size
         if ("Sun".equalsIgnoreCase(selected.getPlanetName()))
             selectedH *= SUN_SPRITE_COMPENSATION;
 
@@ -101,7 +104,7 @@ public class PlanetSizeComparator {
     }
 
 
-    // legacy single ratio, kept for compatibility
+    // Legacy single-ratio method — kept for any callers that request a scale factor instead of display heights
     public float getScale(PlanetObj selected, PlanetObj compare) {
 
         if (selected == null || compare == null)
@@ -114,6 +117,8 @@ public class PlanetSizeComparator {
             return 1f;
 
         float ratio = cmpDiam / selDiam;
+
+        // Clamp to the actual Sun-to-Mercury range so the scale never exceeds what the screen can show
         return Math.max(0.06f, Math.min(ratio, 109f / 0.38f));
     }
 }

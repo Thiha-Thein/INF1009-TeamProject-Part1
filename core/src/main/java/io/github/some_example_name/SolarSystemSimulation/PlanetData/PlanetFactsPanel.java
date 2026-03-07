@@ -10,33 +10,26 @@ import com.badlogic.gdx.utils.viewport.Viewport;
 
 import java.util.Map;
 
-/*
-    PlanetFactsPanel
-
-    Draws the UI panel that displays educational information
-    about the currently selected planet.
-*/
-
+// Draws the right-side information panel shown when a planet is selected
+// Renders three sections: About (description paragraph), Key Stats (key-value table), and Fun Facts (card list)
+// Fonts are injected by SolarSystemMap rather than created here to keep font lifecycle centralised
 public class PlanetFactsPanel {
 
-    // Rendering utilities provided externally
     private final SpriteBatch batch;
     private final ShapeRenderer shapeRenderer;
     private final Viewport viewport;
 
-    // Fonts are injected instead of created here
     private final BitmapFont titleFont;
     private final BitmapFont headerFont;
     private final BitmapFont bodyFont;
-    private final BitmapFont statFont;
+    private final BitmapFont statFont; // slightly larger than bodyFont to make stat values stand out
 
-    // Used to measure and wrap long text
+    // Reusable layout object for measuring and wrapping text — avoids allocating a new one per frame
     private final GlyphLayout layout = new GlyphLayout();
 
-    // Padding inside the information panel
+    // Space between the panel edge and its text content
     private static final float PADDING = 40f;
 
-    // Constructor now receives fonts instead of generating them
     public PlanetFactsPanel(SpriteBatch batch,
                             ShapeRenderer shapeRenderer,
                             Viewport viewport,
@@ -45,43 +38,36 @@ public class PlanetFactsPanel {
                             BitmapFont bodyFont,
                             BitmapFont statFont) {
 
-        // Store renderer references
         this.batch = batch;
         this.shapeRenderer = shapeRenderer;
         this.viewport = viewport;
-
-        // Store fonts provided by the caller
         this.titleFont = titleFont;
         this.headerFont = headerFont;
         this.bodyFont = bodyFont;
         this.statFont = statFont;
     }
 
-    // Draws the entire planet information panel
+    // Renders the full panel — silently skips if no data is provided (e.g. planet has no JSON entry)
     public void render(String planetName, PlanetDataComponent data) {
 
-        // Do nothing if no planet data is provided
         if (data == null) return;
 
         float screenWidth = viewport.getWorldWidth();
         float screenHeight = viewport.getWorldHeight();
 
-        // Panel width takes up roughly 40% of screen
+        // Panel occupies the right ~42% of screen width
         float panelWidth = screenWidth * 0.42f;
-
-        // Panel positioned on the right side
         float panelX = screenWidth - panelWidth - PADDING;
-
         float panelHeight = screenHeight - PADDING * 2;
-        float panelY = screenHeight - PADDING;
+        float panelY = screenHeight - PADDING; // LibGDX Y is bottom-up so this is the top of the panel
 
-        // Draw panel background
+        // Draw dark blue panel background
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         shapeRenderer.setColor(0f, 0f, 0.15f, 0.95f);
         shapeRenderer.rect(panelX, panelY - panelHeight, panelWidth, panelHeight);
         shapeRenderer.end();
 
-        // Draw panel border
+        // Draw a light blue border around the panel
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
         shapeRenderer.setColor(0.5f, 0.7f, 1f, 1f);
         shapeRenderer.rect(panelX, panelY - panelHeight, panelWidth, panelHeight);
@@ -92,42 +78,37 @@ public class PlanetFactsPanel {
         float textX = panelX + PADDING;
         float textY = panelY - PADDING;
 
-        // Draw planet name
         titleFont.draw(batch, planetName, textX, textY);
 
         textY -= 60f;
 
-        // Render description section
         textY = renderAbout(data, panelWidth, textX, textY);
 
         textY -= 30f;
 
-        // Render statistics section
         textY = renderStats(data, textX, textY);
 
         textY -= 40f;
 
-        // Render fun facts section
         renderFacts(data, panelWidth, panelX, textX, textY);
 
-        // Draw keyboard control instructions at the bottom of the panel
+        // Keyboard hint at the bottom of the panel so users know how to navigate comparison mode
         renderControls(panelX, panelWidth, panelY - panelHeight);
 
         batch.end();
     }
 
-    // Draws the planet description paragraph
+    // Draws the "About This Planet" section — description is word-wrapped to fit the panel width
     private float renderAbout(PlanetDataComponent data,
                               float panelWidth,
                               float textX,
                               float textY) {
 
-        // Draw section header
         headerFont.draw(batch, "About This Planet", textX, textY);
 
         textY -= 45f;
 
-        // Prepare wrapped paragraph text
+        // Wrap the description to the available text area width
         layout.setText(
             bodyFont,
             data.getDescription(),
@@ -137,7 +118,6 @@ public class PlanetFactsPanel {
             true
         );
 
-        // Draw description text
         bodyFont.draw(batch, layout, textX, textY);
 
         textY -= layout.height + 30f;
@@ -145,12 +125,11 @@ public class PlanetFactsPanel {
         return textY;
     }
 
-    // Draws the list of planet statistics
+    // Draws the "Key Stats" section — stat label on the left, value next to it measured to avoid overlap
     private float renderStats(PlanetDataComponent data,
                               float textX,
                               float textY) {
 
-        // Draw section header
         headerFont.draw(batch, "Key Stats", textX, textY);
 
         textY -= 45f;
@@ -161,15 +140,13 @@ public class PlanetFactsPanel {
 
             for (Map.Entry<String, String> stat : stats.entrySet()) {
 
-                // Draw stat label
                 String label = stat.getKey() + ":";
 
                 bodyFont.draw(batch, label, textX, textY);
 
-                // Measure label width so value can be aligned next to it
+                // Measure the label so the value starts immediately to the right of the colon
                 layout.setText(bodyFont, label);
 
-                // Draw stat value
                 statFont.draw(
                     batch,
                     stat.getValue(),
@@ -184,21 +161,20 @@ public class PlanetFactsPanel {
         return textY;
     }
 
-    // Draws fact cards containing interesting information
+    // Draws the "Fun Facts" section — each fact rendered inside a subtle card background
     private void renderFacts(PlanetDataComponent data,
                              float panelWidth,
                              float panelX,
                              float textX,
                              float textY) {
 
-        // Draw section header
         headerFont.draw(batch, "Fun Facts", textX, textY);
 
         textY -= 50f;
 
         for (PlanetData.Fact fact : data.getFacts()) {
 
-            // Measure wrapped fact paragraph
+            // Measure wrapped fact text before drawing the card background so the card height fits the content
             layout.setText(
                 bodyFont,
                 fact.getText(),
@@ -210,9 +186,8 @@ public class PlanetFactsPanel {
 
             float cardHeight = layout.height + 60f;
 
-            batch.end();
+            batch.end(); // end batch to switch to ShapeRenderer for the card background
 
-            // Draw card background
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
             shapeRenderer.setColor(0.08f, 0.08f, 0.18f, 1f);
 
@@ -225,23 +200,22 @@ public class PlanetFactsPanel {
 
             shapeRenderer.end();
 
-            batch.begin();
+            batch.begin(); // resume batch to draw text on top of the card
 
-            // Draw fact title
+            // Fact title in yellow to distinguish it from the body text
             headerFont.setColor(Color.YELLOW);
             headerFont.draw(batch, fact.getTitle(), textX, textY);
-            headerFont.setColor(Color.CYAN);
+            headerFont.setColor(Color.CYAN); // reset to cyan for subsequent headers
 
             textY -= 35f;
 
-            // Draw fact text
             bodyFont.draw(batch, layout, textX, textY);
 
             textY -= layout.height + 50f;
         }
     }
 
-    // Draw keyboard instructions at the bottom of the panel
+    // Draws keyboard shortcut hints at the bottom of the panel to guide users through comparison mode
     private void renderControls(float panelX, float panelWidth, float panelBottomY) {
 
         float textX = panelX + PADDING;

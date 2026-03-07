@@ -2,7 +2,8 @@ package io.github.some_example_name.SolarSystemSimulation.PlanetData;
 
 import java.util.Map;
 
-// Component attached to planets storing educational data
+// Entity component that carries a planet's educational content
+// Stored as a component so PlanetFactsPanel can access it via getComponent() without knowing about PlanetObj
 public class PlanetDataComponent {
 
     private final String description;

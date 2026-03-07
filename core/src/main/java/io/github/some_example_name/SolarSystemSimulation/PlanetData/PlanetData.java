@@ -2,15 +2,16 @@ package io.github.some_example_name.SolarSystemSimulation.PlanetData;
 
 import java.util.Map;
 
-// Represents one planet entry from planets.json
+// POJO that mirrors one entry in planets.json — Gson populates this via reflection so field names must match the JSON keys exactly
 public class PlanetData {
 
     private String name;
     private String description;
 
-    // facts are now objects, not plain strings
+    // Array of structured fact objects rather than plain strings — each fact has a title and body text
     private Fact[] facts;
 
+    // Key-value pairs of stat labels to stat values (e.g. "Mass" → "1.898 × 10²⁷ kg")
     private Map<String, String> stats;
 
     public String getName() { return name; }
@@ -18,7 +19,7 @@ public class PlanetData {
     public Fact[] getFacts() { return facts; }
     public Map<String,String> getStats() { return stats; }
 
-    // small inner class representing a fact card
+    // Inner class representing a single fact card — title is displayed as a heading, text as the body
     public static class Fact {
 
         private String title;

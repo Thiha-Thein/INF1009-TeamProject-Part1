@@ -14,21 +14,10 @@ import io.github.some_example_name.SolarSystemSimulation.*;
 import java.util.ArrayList;
 import java.util.List;
 
-/*
- * PlanetNameBar
- *
- * Responsible for rendering planet names across the top of the screen
- * and detecting which planet name was clicked.
- *
- * This UI element belongs to the Solar System simulation layer and
- * intentionally does not use the generic UIManager system.
- *
- * Responsibilities:
- *
- * 1. Render planet names evenly across the top of the screen
- * 2. Detect which planet name is clicked
- * 3. Return the selected PlanetObj to SolarSystemMap
- */
+// Renders a row of planet names across the top of the screen and detects clicks on them
+// Clicking a name triggers presentation mode the same way clicking the planet sprite does
+// This class intentionally does not use the generic UIManager — it manages its own layout to stay
+// tightly coupled with the planet list ordering
 public class PlanetNameBar {
 
     private final SpriteBatch batch;
@@ -36,23 +25,19 @@ public class PlanetNameBar {
 
     private BitmapFont nameFont;
 
-    // Layout data for each planet name
-    private final List<GlyphLayout> nameLayouts = new ArrayList<>();
-    private final List<Float> namePositionsX = new ArrayList<>();
-    private final List<PlanetObj> orderedPlanets = new ArrayList<>();
+    // Parallel lists — each index corresponds to one planet in orderedPlanets
+    private final List<GlyphLayout> nameLayouts = new ArrayList<>();   // pre-measured text for efficient rendering
+    private final List<Float> namePositionsX = new ArrayList<>();      // centered X position within each slot
+    private final List<PlanetObj> orderedPlanets = new ArrayList<>();  // the planet list this bar represents
 
-    // Y position of the name bar
-    private float nameBarY;
+    private float nameBarY; // Y position of the name bar — recalculated on resize
 
     public PlanetNameBar(SpriteBatch batch, Viewport viewport) {
         this.batch = batch;
         this.viewport = viewport;
     }
 
-    /*
-     * Initializes the name bar.
-     * Called once during SolarSystemMap.initialize().
-     */
+    // Initializes the bar with the planet list and generates the font — must be called after the GL context exists
     public void initialize(List<PlanetObj> planets) {
 
         orderedPlanets.clear();
@@ -61,7 +46,6 @@ public class PlanetNameBar {
 
         orderedPlanets.addAll(planets);
 
-        // Generate font used for planet names
         FreeTypeFontGenerator generator =
             new FreeTypeFontGenerator(Gdx.files.internal("fonts/star_crush.ttf"));
 
@@ -74,12 +58,10 @@ public class PlanetNameBar {
         nameFont = generator.generateFont(param);
         generator.dispose();
 
-        // Build initial layout
         rebuildLayout();
     }
 
-    //Rebuilds name layout positions based on viewport size.
-    //This ensures correct alignment when the window is resized.
+    // Recalculates text positions to fit the current viewport width — called on init and on every resize
     public void rebuildLayout() {
 
         nameLayouts.clear();
@@ -87,10 +69,10 @@ public class PlanetNameBar {
 
         float worldWidth = viewport.getWorldWidth();
 
-        // Divide screen into equal slots for each planet
+        // Divide screen into equal horizontal slots, one per planet
         float slotWidth = worldWidth / orderedPlanets.size();
 
-        nameBarY = viewport.getWorldHeight() - 50f;
+        nameBarY = viewport.getWorldHeight() - 50f; // a small margin from the top edge
 
         for (int i = 0; i < orderedPlanets.size(); i++) {
 
@@ -99,21 +81,18 @@ public class PlanetNameBar {
             GlyphLayout layout = new GlyphLayout(nameFont, planet.getPlanetName());
             nameLayouts.add(layout);
 
-            // Centre each planet name within its slot
+            // Center the name within its allocated slot
             float slotCenterX = slotWidth * i + slotWidth / 2f;
             namePositionsX.add(slotCenterX - layout.width / 2f);
         }
     }
 
-    /*
-     * Called by SolarSystemMap when the screen resizes.
-     * Recalculates layout positions.
-     */
+    // Called by SolarSystemMap on resize — recalculates positions for the new viewport dimensions
     public void resize() {
         rebuildLayout();
     }
 
-    //Returns the clicked planet or null if no name was clicked.
+    // Returns the planet whose name was clicked, or null if the click missed all names
     public PlanetObj getClickedPlanet(Vector2 mouse) {
 
         for (int i = 0; i < orderedPlanets.size(); i++) {
@@ -126,7 +105,7 @@ public class PlanetNameBar {
         return null;
     }
 
-    //Renders all planet names evenly spaced across the top.
+    // Renders all planet names at their pre-calculated positions
     public void render() {
         batch.begin();
         for (int i = 0; i < orderedPlanets.size(); i++) {
@@ -135,7 +114,7 @@ public class PlanetNameBar {
         batch.end();
     }
 
-    //Hit test for detecting clicks on planet names.
+    // AABB hit test on the text bounding box — Y range accounts for the font's descender below the baseline
     private boolean isInsideName(Vector2 mouse, float x, float y, GlyphLayout layout) {
 
         return mouse.x >= x && mouse.x <= x + layout.width &&

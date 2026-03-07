@@ -5,31 +5,31 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import java.util.ArrayList;
 import java.util.List;
 
-// Represents one UI rendering layer
-// Allows ordered UI drawing (HUD, panels, popups etc.)
+// A single rendering layer that holds a set of UI elements
+// Using layers allows ordered rendering (e.g. HUD behind popups) by adding multiple UILayers to UIManager
 public class UILayer {
 
     private final List<UIElement> elements = new ArrayList<>();
 
-    // Adds UI element to this layer
+    // Adds an element to this layer — duplicate guard prevents the same element being registered twice
+    // (e.g. when UISystem re-registers entity UI every frame)
     public void add(UIElement element) {
         if (!elements.contains(element))
             elements.add(element);
     }
 
-    // Removes UI element
     public void remove(UIElement element) {
         elements.remove(element);
     }
 
-    // Updates all UI elements in this layer
+    // Advances all elements — called by UIManager each frame
     public void update(float deltaTime) {
         for (UIElement e : elements) {
             e.update(deltaTime);
         }
     }
 
-    // Renders UI elements in this layer
+    // Renders only visible elements — invisible elements stay registered so they can be re-shown without re-adding
     public void render(SpriteBatch batch) {
         for (UIElement e : elements) {
             if (e.isVisible())
@@ -37,7 +37,7 @@ public class UILayer {
         }
     }
 
-    // Returns elements for input detection
+    // Exposes elements so UIInputSystem can perform hit-testing without needing its own element list
     public List<UIElement> getElements() {
         return elements;
     }

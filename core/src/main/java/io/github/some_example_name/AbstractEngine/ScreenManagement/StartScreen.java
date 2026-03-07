@@ -13,20 +13,18 @@ import io.github.some_example_name.AbstractEngine.IOManagement.*;
 import io.github.some_example_name.AbstractEngine.AudioManagement.*;
 import io.github.some_example_name.AbstractEngine.UIManagement.*;
 
- //Main menu of the game.
- //Displays buttons for launching simulations or exiting the game.
- //Uses UIManager and UIButton instead of manual hit detection.
+// Main menu screen — displays Simulation and Quit buttons against a space background
+// Receives a reference to SimulationScreen so it can call loadWorld() before switching to it
 public class StartScreen extends AbstractScreen {
 
     private final IOManager ioManager;
     private final SoundManager soundManager;
-    private final SimulationScreen simulationScreen;
+    private final SimulationScreen simulationScreen; // held so the button callback can trigger world loading
 
     private SpriteBatch batch;
     private Texture backgroundTexture;
     private Viewport viewport;
 
-    // UI framework
     private final UIManager uiManager = new UIManager();
     private final UILayer uiLayer = new UILayer();
     private UIInputSystem uiInputSystem;
@@ -47,17 +45,15 @@ public class StartScreen extends AbstractScreen {
         this.simulationScreen = simulationScreen;
     }
 
-    // Called when menu becomes active
     @Override
+    // Called when this screen becomes active — safe to load assets here because GL context is guaranteed
     public void show() {
 
         viewport = new ScreenViewport();
         viewport.update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
         backgroundTexture = new Texture("planets/spaceBackground.png");
 
-        // Generate font used for menu buttons
         FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.internal("fonts/star_crush.ttf"));
-
         FreeTypeFontGenerator.FreeTypeFontParameter parameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
 
         parameter.size = 140;
@@ -66,16 +62,13 @@ public class StartScreen extends AbstractScreen {
 
         uiManager.addLayer(uiLayer);
 
-        // Simulation button
-        UIButton simulationButton = new UIButton("SIMULATION", font);
-
         float centerX = Gdx.graphics.getWidth() / 2f;
         float centerY = Gdx.graphics.getHeight() / 2f;
-
         float buttonWidth = 450;
         float buttonHeight = 100;
 
-        // Simulation button
+        // Simulation button — loads the solar system world then switches to SimulationScreen
+        UIButton simulationButton = new UIButton("SIMULATION", font);
         simulationButton.setSize(buttonWidth, buttonHeight);
         simulationButton.setPosition(centerX - buttonWidth / 2f, centerY + 50);
 
@@ -85,48 +78,43 @@ public class StartScreen extends AbstractScreen {
             manager.setScreen("simulation");
         });
 
-        // Quit button
+        // Quit button — exits the application cleanly via LibGDX's platform-safe exit
         UIButton quitButton = new UIButton("QUIT", font);
-
-        // Quit button
         quitButton.setSize(buttonWidth, buttonHeight);
         quitButton.setPosition(centerX - buttonWidth / 2f, centerY - 120);
 
         quitButton.setOnClick(() -> {
-
             soundManager.playSound("ui_click");
-
             Gdx.app.exit();
         });
 
         uiLayer.add(simulationButton);
         uiLayer.add(quitButton);
 
-        // System responsible for detecting button clicks
+        // UIInputSystem handles converting unprojected mouse coordinates into button click events
         uiInputSystem = new UIInputSystem(ioManager, uiManager);
     }
 
-    // Updates UI input and animations
     @Override
     public void update(float deltaTime) {
 
+        // Unproject mouse from screen pixels to world units before passing to UI hit-testing
         Vector2 mouse = viewport.unproject(
             new Vector2(ioManager.getMouseX(), ioManager.getMouseY())
         );
 
         uiInputSystem.update(mouse.x, mouse.y);
-
         uiManager.update(deltaTime);
     }
 
-    // Renders background and UI
     @Override
     public void render() {
         viewport.apply();
         batch.setProjectionMatrix(viewport.getCamera().combined);
         batch.begin();
+        // Background fills the entire world area regardless of window size
         batch.draw(backgroundTexture,
-            0,0,
+            0, 0,
             viewport.getWorldWidth(),
             viewport.getWorldHeight()
         );
@@ -134,6 +122,7 @@ public class StartScreen extends AbstractScreen {
         batch.end();
     }
 
+    // These lifecycle methods are empty — assets are recreated in show() each time the screen becomes active
     @Override public void dispose() {}
     @Override public void hide() {}
     @Override public void pause() {}

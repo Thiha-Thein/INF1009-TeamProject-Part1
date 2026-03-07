@@ -5,33 +5,32 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import java.util.ArrayList;
 import java.util.List;
 
-// Central UI renderer for the engine
-// Responsible only for updating and rendering UI layers
-// Does not communicate with game logic directly
+// Central coordinator for UI rendering — owns a list of UILayers and drives their update and render each frame
+// Intentionally has no knowledge of game logic; game-specific UI interaction is handled by UIInputSystem
 public class UIManager {
 
     private final List<UILayer> layers = new ArrayList<>();
 
-    // Adds a new UI layer
+    // Adds a new layer — layers are rendered in insertion order, so add background layers before foreground layers
     public void addLayer(UILayer layer) {
         layers.add(layer);
     }
 
-    // Updates all UI layers
+    // Advances all layers each frame so animated elements can update
     public void update(float deltaTime) {
         for (UILayer layer : layers) {
             layer.update(deltaTime);
         }
     }
 
-    // Renders UI layers in order
+    // Renders all layers in insertion order — earlier layers appear behind later ones
     public void render(SpriteBatch batch) {
         for (UILayer layer : layers) {
             layer.render(batch);
         }
     }
 
-    // Returns layers for input processing
+    // Exposes the layer list so UIInputSystem can walk all layers for hit-testing
     public List<UILayer> getLayers() {
         return layers;
     }
