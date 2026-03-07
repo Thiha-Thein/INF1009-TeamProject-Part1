@@ -15,8 +15,8 @@ import io.github.some_example_name.AbstractEngine.EntityManagement.*;
 import io.github.some_example_name.AbstractEngine.IOManagement.*;
 import io.github.some_example_name.AbstractEngine.MovementManagement.*;
 import io.github.some_example_name.AbstractEngine.ScreenManagement.*;
-import io.github.some_example_name.AbstractEngine.ScreenManagement.ISimulation;
 import io.github.some_example_name.SolarSystemSimulation.*;
+import io.github.some_example_name.AbstractEngine.UIManagement.*;
 
 public class GameMaster extends ApplicationAdapter {
 
@@ -29,6 +29,8 @@ public class GameMaster extends ApplicationAdapter {
     private AudioSystem audioSystem; //to be used in the future
     private ScreenManager screenManager;
     private AIManager aiManager;
+
+    private UISystem uiSystem;
 
     private SpriteBatch batch;
 
@@ -45,6 +47,7 @@ public class GameMaster extends ApplicationAdapter {
         audioSystem = new AudioSystem(soundManager);
         screenManager = new ScreenManager();
         aiManager = new AIManager();
+        uiSystem = new UISystem(new UIManager(), new UILayer());
     }
 
     @Override
@@ -90,11 +93,11 @@ public class GameMaster extends ApplicationAdapter {
         ioManager.bindKey("s", Input.Keys.S);
         ioManager.bindKey("a", Input.Keys.A);
         ioManager.bindKey("d", Input.Keys.D);
+        ioManager.bindKey("escape", Input.Keys.ESCAPE);  // add this
 
         ioManager.bindMouse("leftClick", Input.Buttons.LEFT);
         ioManager.bindMouse("rightClick", Input.Buttons.RIGHT);
     }
-
     private void initializeAudio() {
         soundManager.loadMusic("menu_bgm", "music/menu.mp3");
         soundManager.loadMusic("interstellarBGM", "music/solarSimulationMusic.mp3");
@@ -118,6 +121,9 @@ public class GameMaster extends ApplicationAdapter {
         movementManager.update(entities, deltaTime);
         collisionManager.checkCollisions(entities);
         entityManager.updateAll(deltaTime);
+
+        // Register UI elements from entities
+        uiSystem.register(entities);
         audioSystem.update(entities);
         screenManager.update(deltaTime);
         screenManager.render();

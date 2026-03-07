@@ -50,6 +50,8 @@ public class Transform {
         position.add(dx, dy);
     }
 
+    public void setPosition(Vector2 position1){position = position1;}
+
     public Vector2 getPosition() {
         return position;
     }

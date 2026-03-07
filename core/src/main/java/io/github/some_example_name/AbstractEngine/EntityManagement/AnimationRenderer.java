@@ -10,6 +10,9 @@ import java.util.Map;
 
 public class AnimationRenderer {
 
+    private float alpha = 1f; // 1 = fully visible
+
+    private boolean visible = true;
     private float stateTime = 0f, scale = 1f;
 
     // Multi-state animations — state name maps to animation and texture
@@ -23,6 +26,14 @@ public class AnimationRenderer {
 
     // Flip sprite horizontally for left/right direction
     private boolean flipped = false;
+
+    public void setVisible(boolean visible) {
+        this.visible = visible;
+    }
+
+    public boolean isVisible() {
+        return visible;
+    }
 
     // Register a named animation state — first added becomes default
     public void addAnimation(String state, String path, int cols, int rows,
@@ -89,23 +100,30 @@ public class AnimationRenderer {
     }
 
     public void render(SpriteBatch batch, Transform transform) {
+
+        if (!visible) return;
         if (currentState == null || !animations.containsKey(currentState)) return;
 
-        float w = transform.getWidth()  * scale;
+        float w = transform.getWidth() * scale;
         float h = transform.getHeight() * scale;
 
-        // center the scaled sprite on the transform position
-        float x = transform.getX() - (w - transform.getWidth())  / 2f;
+        // Center the scaled sprite on the transform position
+        float x = transform.getX() - (w - transform.getWidth()) / 2f;
         float y = transform.getY() - (h - transform.getHeight()) / 2f;
 
         TextureRegion frame = animations.get(currentState).getKeyFrame(stateTime);
 
-        // draw from x+w with negative width to flip horizontally
+        // Apply transparency
+        batch.setColor(1f, 1f, 1f, alpha);
+
         if (flipped) {
             batch.draw(frame, x + w, y, -w, h);
         } else {
             batch.draw(frame, x, y, w, h);
         }
+
+        // Reset color so other objects aren't affected
+        batch.setColor(1f, 1f, 1f, 1f);
     }
 
     public void reset() {
@@ -114,6 +132,23 @@ public class AnimationRenderer {
 
     public void setScale(float scale) {
         this.scale = scale;
+    }
+
+    public float getScale() {
+        return scale;
+    }
+
+    public void setAlpha(float alpha) {
+        this.alpha = alpha;
+    }
+
+    public float getAlpha() {
+        return alpha;
+    }
+
+    public TextureRegion getCurrentFrame() {
+        if (currentState == null || !animations.containsKey(currentState)) return null;
+        return animations.get(currentState).getKeyFrame(stateTime);
     }
 
     public void dispose() {

@@ -5,147 +5,137 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
-import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
 import io.github.some_example_name.AbstractEngine.IOManagement.*;
 import io.github.some_example_name.AbstractEngine.AudioManagement.*;
+import io.github.some_example_name.AbstractEngine.UIManagement.*;
 
+ //Main menu of the game.
+ //Displays buttons for launching simulations or exiting the game.
+ //Uses UIManager and UIButton instead of manual hit detection.
 public class StartScreen extends AbstractScreen {
 
     private final IOManager ioManager;
     private final SoundManager soundManager;
+    private final SimulationScreen simulationScreen;
 
     private SpriteBatch batch;
     private Texture backgroundTexture;
-    private BitmapFont font;
-    private GlyphLayout solarLayout, wordSlayerLayout,quitLayout;
     private Viewport viewport;
 
-    private float solarX, solarY, quitX, quitY, wordX, wordY;
-    private final SimulationScreen simulationScreen;
+    // UI framework
+    private final UIManager uiManager = new UIManager();
+    private final UILayer uiLayer = new UILayer();
+    private UIInputSystem uiInputSystem;
 
-    public StartScreen(ScreenManager manager, IOManager ioManager, SpriteBatch batch, SoundManager soundManager, SimulationScreen simulationScreen) {
+    private BitmapFont font;
+
+    public StartScreen(ScreenManager manager,
+                       IOManager ioManager,
+                       SpriteBatch batch,
+                       SoundManager soundManager,
+                       SimulationScreen simulationScreen) {
+
         super(manager);
+
         this.ioManager = ioManager;
         this.batch = batch;
         this.soundManager = soundManager;
         this.simulationScreen = simulationScreen;
     }
 
+    // Called when menu becomes active
     @Override
     public void show() {
-        backgroundTexture = new Texture("environment/Blue.png");
+
         viewport = new ScreenViewport();
-        soundManager.playMusic("menu_bgm", true);
+        viewport.update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
+        backgroundTexture = new Texture("planets/spaceBackground.png");
 
-        resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-    }
+        // Generate font used for menu buttons
+        FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.internal("fonts/star_crush.ttf"));
 
-    @Override
-    public void resize(int width, int height) {
-        viewport.update(width, height, true);
+        FreeTypeFontGenerator.FreeTypeFontParameter parameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
 
-        if (font != null) font.dispose();
-
-        FreeTypeFontGenerator generator =
-            new FreeTypeFontGenerator(Gdx.files.internal("fonts/Molen_Friend_Demo.otf"));
-        FreeTypeFontGenerator.FreeTypeFontParameter parameter =
-            new FreeTypeFontGenerator.FreeTypeFontParameter();
-        parameter.size = (int) (height / 10f);
-        parameter.minFilter = Texture.TextureFilter.Linear;
-        parameter.magFilter = Texture.TextureFilter.Linear;
+        parameter.size = 140;
         font = generator.generateFont(parameter);
         generator.dispose();
 
-        solarLayout = new GlyphLayout(font, "SIMULATION");
-        wordSlayerLayout = new GlyphLayout(font, "GAME");
-        quitLayout = new GlyphLayout(font, "QUIT");
+        uiManager.addLayer(uiLayer);
 
-        float centerX = width / 2f;
-        float centerY = height / 2f;
+        // Simulation button
+        UIButton simulationButton = new UIButton("SIMULATION", font);
 
-        float spacing = 200f; // vertical spacing between buttons
+        float centerX = Gdx.graphics.getWidth() / 2f;
+        float centerY = Gdx.graphics.getHeight() / 2f;
 
-        solarX = centerX - solarLayout.width / 2f;
-        solarY = centerY + spacing;
+        float buttonWidth = 450;
+        float buttonHeight = 100;
 
-        wordX = centerX - wordSlayerLayout.width / 2f;
-        wordY = centerY;
+        // Simulation button
+        simulationButton.setSize(buttonWidth, buttonHeight);
+        simulationButton.setPosition(centerX - buttonWidth / 2f, centerY + 50);
 
-        quitX = centerX - quitLayout.width / 2f;
-        quitY = centerY - spacing;
+        simulationButton.setOnClick(() -> {
+            soundManager.playSound("ui_click");
+            simulationScreen.loadWorld("solarSystem");
+            manager.setScreen("simulation");
+        });
+
+        // Quit button
+        UIButton quitButton = new UIButton("QUIT", font);
+
+        // Quit button
+        quitButton.setSize(buttonWidth, buttonHeight);
+        quitButton.setPosition(centerX - buttonWidth / 2f, centerY - 120);
+
+        quitButton.setOnClick(() -> {
+
+            soundManager.playSound("ui_click");
+
+            Gdx.app.exit();
+        });
+
+        uiLayer.add(simulationButton);
+        uiLayer.add(quitButton);
+
+        // System responsible for detecting button clicks
+        uiInputSystem = new UIInputSystem(ioManager, uiManager);
     }
 
+    // Updates UI input and animations
     @Override
     public void update(float deltaTime) {
-        if (ioManager.wasPressed("leftClick")) {
-            Vector2 mouse = viewport.unproject(
-                new Vector2(ioManager.getMouseX(), ioManager.getMouseY())
-            );
 
-            if (isInside(mouse.x, mouse.y, solarX, solarY, solarLayout)) {
-                soundManager.playSound("ui_click");
-                simulationScreen.loadWorld("solarSystem");
-                manager.setScreen("simulation");
-            }
+        Vector2 mouse = viewport.unproject(
+            new Vector2(ioManager.getMouseX(), ioManager.getMouseY())
+        );
 
-            if (isInside(mouse.x, mouse.y, wordX, wordY, wordSlayerLayout)) {
-                soundManager.playSound("ui_click");
-                simulationScreen.loadWorld("wordSlayer");
-                manager.setScreen("simulation");
-            }
+        uiInputSystem.update(mouse.x, mouse.y);
 
-            if (isInside(mouse.x, mouse.y, quitX, quitY, quitLayout)) {
-                soundManager.playSound("ui_click");
-                Gdx.app.exit();
-            }
-        }
+        uiManager.update(deltaTime);
     }
 
-    private boolean isInside(float mx, float my, float x, float y, GlyphLayout layout) {
-        return mx >= x &&
-            mx <= x + layout.width &&
-            my >= y - layout.height &&
-            my <= y;
-    }
-
+    // Renders background and UI
     @Override
     public void render() {
         viewport.apply();
         batch.setProjectionMatrix(viewport.getCamera().combined);
-
         batch.begin();
-
-        int tileWidth = backgroundTexture.getWidth();
-        int tileHeight = backgroundTexture.getHeight();
-        for (int x = 0; x < viewport.getScreenWidth(); x += tileWidth) {
-            for (int y = 0; y < viewport.getScreenHeight(); y += tileHeight) {
-                batch.draw(backgroundTexture, x, y);
-            }
-        }
-
-        font.draw(batch, solarLayout, solarX, solarY);
-        font.draw(batch, wordSlayerLayout, wordX, wordY);
-        font.draw(batch, quitLayout, quitX, quitY);
-
+        batch.draw(backgroundTexture,
+            0,0,
+            viewport.getWorldWidth(),
+            viewport.getWorldHeight()
+        );
+        uiManager.render(batch);
         batch.end();
     }
 
-    @Override
-    public void hide() {}
-
-    @Override
-    public void dispose() {
-        if (font != null) font.dispose();
-        if (backgroundTexture != null) backgroundTexture.dispose();
-    }
-
-    @Override
-    public void pause() {}
-
-    @Override
-    public void resume() {}
+    @Override public void dispose() {}
+    @Override public void hide() {}
+    @Override public void pause() {}
+    @Override public void resume() {}
 }

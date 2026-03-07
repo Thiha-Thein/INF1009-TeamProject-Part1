@@ -1,6 +1,6 @@
 package io.github.some_example_name.AbstractEngine.AIManagement;
 
-import io.github.some_example_name.AbstractEngine.EntityManagement.*;
+import io.github.some_example_name.AbstractEngine.EntityManagement.AbstractEntity;
 import java.util.List;
 
 public class AIManager {
@@ -9,7 +9,7 @@ public class AIManager {
         for (AbstractEntity entity : entities) {
             AIComponent ai = entity.getComponent(AIComponent.class);
             if (ai == null) continue;
-            ai.update(entity, deltaTime);
+            ai.start(entity);
         }
     }
 }
