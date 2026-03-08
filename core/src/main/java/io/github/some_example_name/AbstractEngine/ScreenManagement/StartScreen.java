@@ -5,130 +5,126 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
-import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
-import io.github.some_example_name.AbstractEngine.IOManagement.IOManager;
-import io.github.some_example_name.AbstractEngine.AudioManagement.SoundManager;
+import io.github.some_example_name.AbstractEngine.IOManagement.*;
+import io.github.some_example_name.AbstractEngine.AudioManagement.*;
+import io.github.some_example_name.AbstractEngine.UIManagement.*;
 
+// Main menu screen — displays Simulation and Quit buttons against a space background
+// Receives a reference to SimulationScreen so it can call loadWorld() before switching to it
 public class StartScreen extends AbstractScreen {
 
     private final IOManager ioManager;
     private final SoundManager soundManager;
+    private final SimulationScreen simulationScreen; // held so the button callback can trigger world loading
 
     private SpriteBatch batch;
     private Texture backgroundTexture;
-    private BitmapFont font;
-    private GlyphLayout startLayout;
-    private GlyphLayout quitLayout;
     private Viewport viewport;
 
-    private float startX, startY;
-    private float quitX, quitY;
+    private final UIManager uiManager = new UIManager();
+    private final UILayer uiLayer = new UILayer();
+    private UIInputSystem uiInputSystem;
 
-    public StartScreen(ScreenManager manager, IOManager ioManager, SpriteBatch batch, SoundManager soundManager) {
+    private BitmapFont font;
+
+    public StartScreen(ScreenManager manager,
+                       IOManager ioManager,
+                       SpriteBatch batch,
+                       SoundManager soundManager,
+                       SimulationScreen simulationScreen) {
+
         super(manager);
+
         this.ioManager = ioManager;
         this.batch = batch;
         this.soundManager = soundManager;
+        this.simulationScreen = simulationScreen;
     }
 
     @Override
+    // Called when this screen becomes active — safe to load assets here because GL context is guaranteed
     public void show() {
-        backgroundTexture = new Texture("environment/Blue.png");
+
         viewport = new ScreenViewport();
-        soundManager.playMusic("menu_bgm", true);
+        viewport.update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
+        backgroundTexture = new Texture("planets/spaceBackground.png");
 
-        resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-    }
+        FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.internal("fonts/star_crush.ttf"));
+        FreeTypeFontGenerator.FreeTypeFontParameter parameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
 
-    @Override
-    public void resize(int width, int height) {
-        viewport.update(width, height, true);
-
-        if (font != null) font.dispose();
-
-        FreeTypeFontGenerator generator =
-            new FreeTypeFontGenerator(Gdx.files.internal("fonts/Molen_Friend_Demo.otf"));
-        FreeTypeFontGenerator.FreeTypeFontParameter parameter =
-            new FreeTypeFontGenerator.FreeTypeFontParameter();
-        parameter.size = (int) (height / 10f);
-        parameter.minFilter = Texture.TextureFilter.Linear;
-        parameter.magFilter = Texture.TextureFilter.Linear;
+        parameter.size = 140;
         font = generator.generateFont(parameter);
         generator.dispose();
 
-        startLayout = new GlyphLayout(font, "START");
-        quitLayout = new GlyphLayout(font, "QUIT");
+        uiManager.addLayer(uiLayer);
 
-        startX = (width - startLayout.width) / 2f;
-        startY = height / 2f + startLayout.height;
+        float centerX = Gdx.graphics.getWidth() / 2f;
+        float centerY = Gdx.graphics.getHeight() / 2f;
+        float buttonWidth = 450;
+        float buttonHeight = 100;
 
-        quitX = (width - quitLayout.width) / 2f;
-        quitY = height / 2f - quitLayout.height * 2f;
+        // Simulation button — loads the solar system world then switches to SimulationScreen
+        UIButton simulationButton = new UIButton("SIMULATION", font);
+        simulationButton.setSize(buttonWidth, buttonHeight);
+        simulationButton.setPosition(centerX - buttonWidth / 2f, centerY + 50);
+
+        simulationButton.setOnClick(() -> {
+            soundManager.playSound("ui_click");
+            simulationScreen.loadWorld("solarSystem");
+            manager.setScreen("simulation");
+        });
+
+        // Quit button — exits the application cleanly via LibGDX's platform-safe exit
+        UIButton quitButton = new UIButton("QUIT", font);
+        quitButton.setSize(buttonWidth, buttonHeight);
+        quitButton.setPosition(centerX - buttonWidth / 2f, centerY - 120);
+
+        quitButton.setOnClick(() -> {
+            soundManager.playSound("ui_click");
+            Gdx.app.exit();
+        });
+
+        uiLayer.add(simulationButton);
+        uiLayer.add(quitButton);
+
+        // UIInputSystem handles converting unprojected mouse coordinates into button click events
+        uiInputSystem = new UIInputSystem(ioManager, uiManager);
     }
 
     @Override
     public void update(float deltaTime) {
-        if (ioManager.wasPressed("leftClick")) {
-            Vector2 mouse = viewport.unproject(
-                new Vector2(ioManager.getMouseX(), ioManager.getMouseY())
-            );
 
-            if (isInside(mouse.x, mouse.y, startX, startY, startLayout)) {
-                soundManager.playSound("ui_click");
-                soundManager.playMusic("game_bgm", true);
-                manager.setScreen("simulation");
-            }
-            if (isInside(mouse.x, mouse.y, quitX, quitY, quitLayout)) {
-                soundManager.playSound("ui_click");
-                Gdx.app.exit();
-            }
-        }
-    }
+        // Unproject mouse from screen pixels to world units before passing to UI hit-testing
+        Vector2 mouse = viewport.unproject(
+            new Vector2(ioManager.getMouseX(), ioManager.getMouseY())
+        );
 
-    private boolean isInside(float mx, float my, float x, float y, GlyphLayout layout) {
-        return mx >= x &&
-            mx <= x + layout.width &&
-            my >= y - layout.height &&
-            my <= y;
+        uiInputSystem.update(mouse.x, mouse.y);
+        uiManager.update(deltaTime);
     }
 
     @Override
     public void render() {
         viewport.apply();
         batch.setProjectionMatrix(viewport.getCamera().combined);
-
         batch.begin();
-
-        int tileWidth = backgroundTexture.getWidth();
-        int tileHeight = backgroundTexture.getHeight();
-        for (int x = 0; x < viewport.getScreenWidth(); x += tileWidth) {
-            for (int y = 0; y < viewport.getScreenHeight(); y += tileHeight) {
-                batch.draw(backgroundTexture, x, y);
-            }
-        }
-
-        font.draw(batch, startLayout, startX, startY);
-        font.draw(batch, quitLayout, quitX, quitY);
-
+        // Background fills the entire world area regardless of window size
+        batch.draw(backgroundTexture,
+            0, 0,
+            viewport.getWorldWidth(),
+            viewport.getWorldHeight()
+        );
+        uiManager.render(batch);
         batch.end();
     }
 
-    @Override
-    public void hide() { dispose(); }
-
-    @Override
-    public void dispose() {
-        if (font != null) font.dispose();
-        if (backgroundTexture != null) backgroundTexture.dispose();
-    }
-
-    @Override
-    public void pause() {}
-
-    @Override
-    public void resume() {}
+    // These lifecycle methods are empty — assets are recreated in show() each time the screen becomes active
+    @Override public void dispose() {}
+    @Override public void hide() {}
+    @Override public void pause() {}
+    @Override public void resume() {}
 }
