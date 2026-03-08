@@ -89,10 +89,6 @@ public class PlanetSizeComparator {
         float selectedH = (selCompressed >= cmpCompressed) ? largerH : smallerH;
         float compareH  = (cmpCompressed >= selCompressed) ? largerH : smallerH;
 
-        // When the Sun is selected, shrink the compare planet further to make the scale difference more apparent
-        if ("Sun".equalsIgnoreCase(selected.getPlanetName()))
-            compareH *= 0.55f;
-
         // Compensate for the Sun sprite being textured smaller than its true proportional size
         if ("Sun".equalsIgnoreCase(selected.getPlanetName()))
             selectedH *= SUN_SPRITE_COMPENSATION;

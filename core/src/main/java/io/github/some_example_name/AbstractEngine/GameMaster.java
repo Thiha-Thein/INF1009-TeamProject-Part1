@@ -18,44 +18,56 @@ import io.github.some_example_name.AbstractEngine.ScreenManagement.*;
 import io.github.some_example_name.SolarSystemSimulation.*;
 import io.github.some_example_name.AbstractEngine.UIManagement.*;
 
-// Central game coordinator — owns all subsystems and drives the main loop via LibGDX callbacks
+// the main entry point for the game — LibGDX calls create(), render(), resize(), and dispose() on this class
 public class GameMaster extends ApplicationAdapter {
 
-    // Core subsystems — each responsible for one domain of game logic
-    private EntityManager entityManager;       // tracks and updates all active game entities
-    private CollisionManager collisionManager; // detects and resolves collisions between entities
-    private MovementManager movementManager;   // applies velocity and physics-based movement
-    private IOManager ioManager;               // stores raw input bindings and current input state
-    private InputSystem inputSystem;           // translates input state into entity actions
-    private SoundManager soundManager;         // loads, plays, and manages audio assets
-    private AudioSystem audioSystem;           // higher-level audio logic driven by entity state — reserved for future use
-    private ScreenManager screenManager;       // manages screen transitions and delegates render/update calls
-    private AIManager aiManager;              // runs AI behaviour logic for non-player entities
-    private UISystem uiSystem;                // collects UI components from entities and coordinates rendering
+    // manages all game entities (planets, players, etc.)
+    private EntityManager entityManager;
+    // checks when two entities overlap
+    private CollisionManager collisionManager;
+    // moves entities each frame based on their velocity
+    private MovementManager movementManager;
+    // stores key and mouse bindings
+    private IOManager ioManager;
+    // reads player input and maps it to entity actions
+    private InputSystem inputSystem;
+    // loads and plays sound effects and music
+    private SoundManager soundManager;
+    // drives audio components attached to entities — reserved for future use
+    private AudioSystem audioSystem;
+    // switches between different screens (start screen, simulation, etc.)
+    private ScreenManager screenManager;
+    // controls AI-driven entities
+    private AIManager aiManager;
 
-    private SpriteBatch batch; // shared sprite batch passed into screens for 2D rendering
+    // manages and renders UI elements like buttons
+    private UISystem uiSystem;
 
-    // Subsystems are constructed here because they have no dependency on the LibGDX graphics context,
-    // which is not available until create() is called
+    // used to draw textures and sprites to the screen
+    private SpriteBatch batch;
+
+    // constructor — creates all the engine systems before the graphics context is ready
     public GameMaster() {
         entityManager = new EntityManager();
         collisionManager = new CollisionManager();
         movementManager = new MovementManager();
         ioManager = new IOManager();
-        inputSystem = new InputSystem(ioManager);    // InputSystem reads from IOManager to drive entity behaviour
+        // inputSystem needs ioManager so it knows which keys are pressed
+        inputSystem = new InputSystem(ioManager);
         soundManager = new SoundManager();
-        audioSystem = new AudioSystem(soundManager); // AudioSystem wraps SoundManager with entity-aware logic
+        // audioSystem wraps soundManager for entity-driven audio events
+        audioSystem = new AudioSystem(soundManager);
         screenManager = new ScreenManager();
         aiManager = new AIManager();
-        uiSystem = new UISystem(new UIManager(), new UILayer()); // UIManager and UILayer have no external dependencies so they are created inline
+        uiSystem = new UISystem(new UIManager(), new UILayer());
     }
 
+    // called once by LibGDX when the game window is ready
     @Override
-    // Called once by LibGDX after the graphics context is ready — safe to load assets and build screens here
     public void create() {
 
         System.out.println("GameMaster: Starting game...");
-        batch = new SpriteBatch(); // SpriteBatch requires an active GL context, so it must be created here rather than in the constructor
+        batch = new SpriteBatch();
         initializeInput();
         initializeAudio();
         initializeScreens();
@@ -63,94 +75,108 @@ public class GameMaster extends ApplicationAdapter {
         System.out.println("GameMaster: Game started!");
     }
 
+    // called every frame by LibGDX — clears the screen then runs the game update
     @Override
-    // Called every frame by LibGDX — clears the screen then hands off to update()
     public void render() {
-        Gdx.gl.glClearColor(0.1f, 0.1f, 0.15f, 1); // dark blue-grey background
+        // fill the screen with a dark background colour before drawing anything
+        Gdx.gl.glClearColor(0.1f, 0.1f, 0.15f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        float deltaTime = Gdx.graphics.getDeltaTime(); // time in seconds since last frame, used to keep logic frame-rate independent
+        float deltaTime = Gdx.graphics.getDeltaTime();
         update(deltaTime);
     }
 
-    // Builds the two application screens and registers them with the screen manager before setting the initial screen
+    // creates the start screen and simulation screen and registers them with the screen manager
     private void initializeScreens() {
 
-        // SimulationScreen needs most subsystems since it runs the live solar simulation
+        // audioSystem is passed to SimulationScreen so minigame worlds can use it
         SimulationScreen simulationScreen = new SimulationScreen(
             screenManager, batch, ioManager, soundManager,
-            entityManager, aiManager, movementManager, collisionManager
+            entityManager, aiManager, movementManager, collisionManager, audioSystem
         );
 
-        // StartScreen only needs basic subsystems; it receives a reference to SimulationScreen so it can trigger the transition
         StartScreen startScreen =
             new StartScreen(screenManager, ioManager, batch, soundManager, simulationScreen);
 
+        // register both screens so the manager can switch between them by name
         screenManager.addScreen("start", startScreen);
         screenManager.addScreen("simulation", simulationScreen);
 
-        screenManager.setScreen("start"); // begin on the start screen
+        // start on the start screen
+        screenManager.setScreen("start");
     }
 
-    // Maps logical action names to physical key and mouse button codes
+    // binds keyboard keys and mouse buttons to named actions used throughout the game
     private void initializeInput() {
         ioManager.bindKey("w", Input.Keys.W);
         ioManager.bindKey("s", Input.Keys.S);
         ioManager.bindKey("a", Input.Keys.A);
         ioManager.bindKey("d", Input.Keys.D);
+        // escape is used to close panels and exit minigames
         ioManager.bindKey("escape", Input.Keys.ESCAPE);
 
         ioManager.bindMouse("leftClick", Input.Buttons.LEFT);
         ioManager.bindMouse("rightClick", Input.Buttons.RIGHT);
+        ioManager.bindKey("space", Input.Keys.SPACE);
     }
 
-    // Loads all audio assets and sets initial playback volumes before starting menu music
+    // loads all music and sound effect files and sets their starting volumes
     private void initializeAudio() {
         soundManager.loadMusic("menu_bgm", "music/menu.mp3");
         soundManager.loadMusic("interstellarBGM", "music/solarSimulationMusic.mp3");
 
         soundManager.loadSound("ui_click", "sfx/click.mp3");
 
-        // Keep background music subtle so it does not overpower gameplay sounds
+        // keep the menu music quiet so it does not overpower the UI
         soundManager.getMusicTrack("menu_bgm").setVolume(0.05f);
         soundManager.getMusicTrack("interstellarBGM").setVolume(0.2f);
 
-        soundManager.playMusic("menu_bgm", true); // loop menu music until the simulation screen takes over
+        // start playing the menu music on loop straight away
+        soundManager.playMusic("menu_bgm", true);
     }
 
-    // Main update loop — runs all subsystems in dependency order every frame
+    // runs all game systems in order every frame
     public void update(float deltaTime) {
 
         List<AbstractEntity> entities = entityManager.getEntities();
 
-        ioManager.update();                          // snapshot current input state before any system reads it
-        aiManager.update(entities, deltaTime);       // AI decisions are made first so they feed into movement
-        inputSystem.update(entities);                // player input applied after AI so both influence the same movement step
-        movementManager.update(entities, deltaTime); // moves entities based on velocity accumulated this frame
-        collisionManager.checkCollisions(entities);  // resolves positions after movement to prevent overlap
-        entityManager.updateAll(deltaTime);          // runs per-entity update logic (animations, timers, etc.)
+        // process keyboard and mouse state for this frame
+        ioManager.update();
+        // move AI-controlled entities
+        aiManager.update(entities, deltaTime);
+        // apply player input to entities
+        inputSystem.update(entities);
+        // move all entities based on their velocity
+        movementManager.update(entities, deltaTime);
+        // detect and resolve overlapping entities
+        collisionManager.checkCollisions(entities);
+        // run each entity's own update logic
+        entityManager.updateAll(deltaTime);
 
-        uiSystem.register(entities);    // rebuild the UI element list from the current entity set each frame
-        audioSystem.update(entities);   // trigger or stop sounds based on entity state changes this frame
+        // collect UI elements from entities and register them for rendering
+        uiSystem.register(entities);
+        // trigger any sound events attached to entities
+        audioSystem.update(entities);
+        // update then draw the current screen
         screenManager.update(deltaTime);
         screenManager.render();
     }
 
+    // called by LibGDX whenever the window is resized — passes new size to the screen manager
     @Override
-    // Forwards resize events to the screen manager so the active screen can adjust its viewport
     public void resize(int width, int height) {
         screenManager.resize(width, height);
     }
 
+    // called when the game closes — frees memory used by screens, sounds, entities, and the batch
     @Override
-    // Releases all resources in reverse dependency order to avoid dangling references
     public void dispose() {
         System.out.println("GameMaster: Cleaning up...");
 
-        if (screenManager != null) screenManager.dispose(); // screens may hold textures and other GL resources
-        if (soundManager != null) soundManager.dispose();   // releases all loaded audio assets
-        if (entityManager != null) entityManager.clear();   // drops entity references to allow GC
-        if (batch != null) batch.dispose();                 // SpriteBatch holds a native GL resource
+        if (screenManager != null) screenManager.dispose();
+        if (soundManager != null) soundManager.dispose();
+        if (entityManager != null) entityManager.clear();
+        if (batch != null) batch.dispose();
 
         System.out.println("GameMaster: Cleanup complete!");
     }

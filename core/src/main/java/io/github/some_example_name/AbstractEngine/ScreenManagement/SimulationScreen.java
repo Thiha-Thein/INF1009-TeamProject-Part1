@@ -21,21 +21,23 @@ import io.github.some_example_name.AbstractEngine.MovementManagement.*;
 import io.github.some_example_name.AbstractEngine.UIManagement.*;
 
 import io.github.some_example_name.SolarSystemSimulation.*;
+import io.github.some_example_name.SolarSystemSimulation.MiniGames.*;
 
-// Screen that hosts ISimulation worlds — acts as a container that owns the viewport and UI chrome
-// while delegating all simulation-specific logic to whichever ISimulation world is currently loaded
+// the main gameplay screen — holds the solar system and all minigame worlds
+// switches between them when the player clicks a planet or finishes a minigame
 public class SimulationScreen extends AbstractScreen {
 
     private final SpriteBatch batch;
-    private Viewport viewport; // created in show() since it needs a GL context
+    // maps screen coordinates to world coordinates
+    private Viewport viewport;
 
-    // Registry of named worlds — add new simulations here to make them loadable by name
+    // stores every available world by name so we can switch between them
     private final Map<String, ISimulation> worlds = new HashMap<>();
 
-    // The currently running simulation — null when no world has been loaded yet
+    // the world that is currently being updated and drawn
     private ISimulation currentWorld;
 
-    // Engine systems forwarded to simulation worlds that need them
+    // engine systems needed to build and run the worlds
     private final IOManager ioManager;
     private final SoundManager soundManager;
     private final EntityManager entityManager;
@@ -43,14 +45,21 @@ public class SimulationScreen extends AbstractScreen {
     private final MovementManager movementManager;
     private final AIManager aiManager;
 
-    // UI system for screen-level buttons (e.g. the Back button) that exist outside the simulation world
+    // drives sound events on entities inside the minigame worlds
+    private final AudioSystem audioSystem;
+
+    // handles button layout and rendering
     private final UIManager uiManager = new UIManager();
     private final UILayer uiLayer = new UILayer();
+    // detects mouse clicks on UI buttons
     private UIInputSystem uiInputSystem;
 
+    // the back button shown in the corner during gameplay
     private UIButton quitButton;
+
     private BitmapFont font;
 
+    // constructor — stores all engine systems and sets up the worlds
     public SimulationScreen(ScreenManager manager,
                             SpriteBatch batch,
                             IOManager ioManager,
@@ -58,7 +67,8 @@ public class SimulationScreen extends AbstractScreen {
                             EntityManager entityManager,
                             AIManager aiManager,
                             MovementManager movementManager,
-                            CollisionManager collisionManager) {
+                            CollisionManager collisionManager,
+                            AudioSystem audioSystem) {
 
         super(manager);
 
@@ -69,11 +79,15 @@ public class SimulationScreen extends AbstractScreen {
         this.aiManager = aiManager;
         this.movementManager = movementManager;
         this.collisionManager = collisionManager;
+        this.audioSystem = audioSystem;
 
-        initializeWorlds(); // worlds are registered here so they can be loaded by name later
+        // create all the worlds and store them in the map
+        initializeWorlds();
+        // give the solar system world the callbacks it needs to launch minigames
+        wireGameCallbacks();
     }
 
-    // Registers all available simulation worlds — add new ISimulation implementations here
+    // creates each world and adds it to the worlds map under a string key
     private void initializeWorlds() {
 
         worlds.put("solarSystem",
@@ -87,21 +101,72 @@ public class SimulationScreen extends AbstractScreen {
                 batch
             )
         );
+
+        // each minigame gets a lambda callback so it can navigate back to the solar system
+        // without needing a direct reference to this screen
+        worlds.put("factOrFiction",
+            new FactOrFictionMap(
+                batch,
+                ioManager,
+                soundManager,
+                entityManager,
+                audioSystem,
+                () -> loadWorld("solarSystem")
+            )
+        );
+
+        worlds.put("orderPlanets",
+            new OrderThePlanetsMap(
+                batch,
+                ioManager,
+                soundManager,
+                entityManager,
+                audioSystem,
+                () -> loadWorld("solarSystem")
+            )
+        );
+
+        worlds.put("matchPlanet",
+            new MatchThePlanetMap(
+                batch,
+                ioManager,
+                soundManager,
+                entityManager,
+                audioSystem,
+                () -> loadWorld("solarSystem")
+            )
+        );
     }
 
-    // Switches to a named world, disposing the previous one first to release its resources
+    // tells the solar system which minigame to open when the player clicks each planet
+    private void wireGameCallbacks() {
+
+        ISimulation solarWorld = worlds.get("solarSystem");
+        if (solarWorld == null) return;
+
+        // map each planet name to the world that should open when it is clicked
+        Map<String, Runnable> callbacks = new HashMap<>();
+        callbacks.put("Earth", () -> loadWorld("factOrFiction"));
+        callbacks.put("Jupiter", () -> loadWorld("orderPlanets"));
+        callbacks.put("Saturn", () -> loadWorld("matchPlanet"));
+
+        // setGameCallbacks is defined on ISimulation — only SolarSystemMap does anything with it
+        solarWorld.setGameCallbacks(callbacks);
+    }
+
+    // disposes the current world and switches to a new one by name
     public void loadWorld(String name) {
 
+        // clean up the old world before switching
         if (currentWorld != null)
             currentWorld.dispose();
 
         currentWorld = worlds.get(name);
 
         if (currentWorld != null) {
-
+            // set up the new world and give it the current screen size
             currentWorld.initialize();
 
-            // Pass the current screen size so the world can position entities correctly from the start
             currentWorld.resize(
                 Gdx.graphics.getWidth(),
                 Gdx.graphics.getHeight()
@@ -109,12 +174,13 @@ public class SimulationScreen extends AbstractScreen {
         }
     }
 
+    // called when this screen becomes the active screen — sets up the viewport, font, and back button
     @Override
-    // Called when this screen becomes active — creates the viewport, fonts, and Back button
     public void show() {
 
         viewport = new ScreenViewport();
 
+        // generate the font used on the back button from a ttf file
         FreeTypeFontGenerator generator =
             new FreeTypeFontGenerator(Gdx.files.internal("fonts/star_crush.ttf"));
 
@@ -122,11 +188,15 @@ public class SimulationScreen extends AbstractScreen {
             new FreeTypeFontGenerator.FreeTypeFontParameter();
 
         parameter.size = 90;
-        font = generator.generateFont(parameter);
-        generator.dispose(); // generator can be disposed immediately after font is created
 
+        font = generator.generateFont(parameter);
+        // dispose the generator after the font is built to free memory
+        generator.dispose();
+
+        // register the UI layer so buttons get drawn
         uiManager.addLayer(uiLayer);
 
+        // create the back button with a label and the font we just generated
         quitButton = new UIButton("BACK", font);
 
         float buttonWidth = 140;
@@ -134,31 +204,35 @@ public class SimulationScreen extends AbstractScreen {
 
         quitButton.setSize(buttonWidth, buttonHeight);
 
-        // Back button disposes the current world, restores menu music and returns to the start screen
+        // what happens when the player clicks the back button
         quitButton.setOnClick(() -> {
-
+            // play a click sound and restart the menu music
             soundManager.playSound("ui_click");
             soundManager.playMusic("menu_bgm", true);
 
+            // clean up whatever world is currently running
             if (currentWorld != null)
                 currentWorld.dispose();
 
             currentWorld = null;
 
+            // go back to the start screen
             manager.setScreen("start");
         });
 
         uiLayer.add(quitButton);
 
-        // UIInputSystem converts unprojected mouse coordinates into button click events
+        // set up the system that detects mouse clicks on buttons
         uiInputSystem = new UIInputSystem(ioManager, uiManager);
 
         resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
     }
 
+    // called whenever the window is resized — updates the viewport and repositions the button
     @Override
     public void resize(int width, int height) {
 
+        // true centers the camera after resizing
         viewport.update(width, height, true);
 
         if (currentWorld != null)
@@ -167,59 +241,56 @@ public class SimulationScreen extends AbstractScreen {
         float marginX = 80f;
         float marginY = 80f;
 
-        // Anchor the Back button to the bottom-left regardless of window size
+        // pin the back button to the bottom-left corner
         quitButton.setPosition(marginX, marginY);
     }
 
+    // updates the current world and checks for button clicks each frame
     @Override
     public void update(float deltaTime) {
 
         if (currentWorld != null)
             currentWorld.update(deltaTime);
 
-        // Unproject mouse from screen-space pixels to world-space units before passing to UI hit-testing
+        // convert the raw mouse pixel position into world coordinates
         Vector2 mouse = viewport.unproject(
             new Vector2(ioManager.getMouseX(), ioManager.getMouseY())
         );
 
+        // check if the mouse is hovering over or clicking any buttons
         uiInputSystem.update(mouse.x, mouse.y);
+
+        // run any button animations (hover effects, etc.)
         uiManager.update(deltaTime);
     }
 
+    // draws the background, the current world, and the UI buttons each frame
     @Override
     public void render() {
 
-        Gdx.gl.glClearColor(0,0,0,1);
+        // clear to black before drawing
+        Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         viewport.apply();
         batch.setProjectionMatrix(viewport.getCamera().combined);
 
-        // Draw background first so it appears behind all simulation visuals
         if (currentWorld != null) {
-
             batch.begin();
-            batch.draw(
-                currentWorld.getBackground(),
-                0,
-                0,
-                viewport.getWorldWidth(),
-                viewport.getWorldHeight()
-            );
+            // stretch the world's background image to fill the whole screen
+            batch.draw(currentWorld.getBackground(), 0, 0, viewport.getWorldWidth(), viewport.getWorldHeight());
             batch.end();
 
-            // Delegate planet and orbit rendering to the active world
+            // draw planets, orbits, and any world-specific visuals
             currentWorld.render(batch);
         }
 
-        // Draw screen-level UI (Back button) in a separate pass on top of everything else
+        // draw UI elements like the back button on top of everything else
         batch.begin();
         uiManager.render(batch);
         batch.end();
     }
 
-    // These lifecycle methods are intentionally empty — this screen has no resources
-    // that need special handling on hide/pause/resume beyond what dispose covers
     @Override public void dispose() {}
     @Override public void hide() {}
     @Override public void pause() {}

@@ -8,28 +8,40 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
+import java.util.HashMap;
 import java.util.Map;
 
-// Draws the right-side information panel shown when a planet is selected
-// Renders three sections: About (description paragraph), Key Stats (key-value table), and Fun Facts (card list)
-// Fonts are injected by SolarSystemMap rather than created here to keep font lifecycle centralised
+/*
+    PlanetFactsPanel
+
+    Draws the UI panel that displays educational information
+    about the currently selected planet.
+*/
+
 public class PlanetFactsPanel {
 
+    // Rendering utilities provided externally
     private final SpriteBatch batch;
     private final ShapeRenderer shapeRenderer;
     private final Viewport viewport;
 
+    // Fonts are injected instead of created here
     private final BitmapFont titleFont;
     private final BitmapFont headerFont;
     private final BitmapFont bodyFont;
-    private final BitmapFont statFont; // slightly larger than bodyFont to make stat values stand out
+    private final BitmapFont statFont;
 
-    // Reusable layout object for measuring and wrapping text — avoids allocating a new one per frame
+    // Used to measure and wrap long text
     private final GlyphLayout layout = new GlyphLayout();
 
-    // Space between the panel edge and its text content
+    // Padding inside the information panel
     private static final float PADDING = 40f;
 
+    // Maps planet name to a Runnable that launches the corresponding minigame
+    // Only Earth, Jupiter and Saturn have entries — other planets show no button
+    private Map<String, Runnable> gameCallbacks = new HashMap<>();
+
+    // Constructor now receives fonts instead of generating them
     public PlanetFactsPanel(SpriteBatch batch,
                             ShapeRenderer shapeRenderer,
                             Viewport viewport,
@@ -38,36 +50,49 @@ public class PlanetFactsPanel {
                             BitmapFont bodyFont,
                             BitmapFont statFont) {
 
+        // Store renderer references
         this.batch = batch;
         this.shapeRenderer = shapeRenderer;
         this.viewport = viewport;
+
+        // Store fonts provided by the caller
         this.titleFont = titleFont;
         this.headerFont = headerFont;
         this.bodyFont = bodyFont;
         this.statFont = statFont;
     }
 
-    // Renders the full panel — silently skips if no data is provided (e.g. planet has no JSON entry)
+    // Registers the minigame launch callbacks keyed by planet name
+    // Called by SolarSystemMap after all three minigame worlds are set up
+    public void setGameCallbacks(Map<String, Runnable> callbacks) {
+        this.gameCallbacks = callbacks;
+    }
+
+    // Draws the entire planet information panel
     public void render(String planetName, PlanetDataComponent data) {
 
+        // Do nothing if no planet data is provided
         if (data == null) return;
 
         float screenWidth = viewport.getWorldWidth();
         float screenHeight = viewport.getWorldHeight();
 
-        // Panel occupies the right ~42% of screen width
+        // Panel width takes up roughly 40% of screen
         float panelWidth = screenWidth * 0.42f;
-        float panelX = screenWidth - panelWidth - PADDING;
-        float panelHeight = screenHeight - PADDING * 2;
-        float panelY = screenHeight - PADDING; // LibGDX Y is bottom-up so this is the top of the panel
 
-        // Draw dark blue panel background
+        // Panel positioned on the right side
+        float panelX = screenWidth - panelWidth - PADDING;
+
+        float panelHeight = screenHeight - PADDING * 2;
+        float panelY = screenHeight - PADDING;
+
+        // Draw panel background
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         shapeRenderer.setColor(0f, 0f, 0.15f, 0.95f);
         shapeRenderer.rect(panelX, panelY - panelHeight, panelWidth, panelHeight);
         shapeRenderer.end();
 
-        // Draw a light blue border around the panel
+        // Draw panel border
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
         shapeRenderer.setColor(0.5f, 0.7f, 1f, 1f);
         shapeRenderer.rect(panelX, panelY - panelHeight, panelWidth, panelHeight);
@@ -78,37 +103,45 @@ public class PlanetFactsPanel {
         float textX = panelX + PADDING;
         float textY = panelY - PADDING;
 
+        // Draw planet name
         titleFont.draw(batch, planetName, textX, textY);
 
         textY -= 60f;
 
+        // Render description section
         textY = renderAbout(data, panelWidth, textX, textY);
 
         textY -= 30f;
 
+        // Render statistics section
         textY = renderStats(data, textX, textY);
 
         textY -= 40f;
 
+        // Render fun facts section
         renderFacts(data, panelWidth, panelX, textX, textY);
 
-        // Keyboard hint at the bottom of the panel so users know how to navigate comparison mode
+        // Draw keyboard control instructions at the bottom of the panel
         renderControls(panelX, panelWidth, panelY - panelHeight);
+
+        // Draw Play Game button if this planet has a minigame assigned
+        renderPlayGameButton(planetName, panelX, panelWidth, panelY - panelHeight);
 
         batch.end();
     }
 
-    // Draws the "About This Planet" section — description is word-wrapped to fit the panel width
+    // Draws the planet description paragraph
     private float renderAbout(PlanetDataComponent data,
                               float panelWidth,
                               float textX,
                               float textY) {
 
+        // Draw section header
         headerFont.draw(batch, "About This Planet", textX, textY);
 
         textY -= 45f;
 
-        // Wrap the description to the available text area width
+        // Prepare wrapped paragraph text
         layout.setText(
             bodyFont,
             data.getDescription(),
@@ -118,6 +151,7 @@ public class PlanetFactsPanel {
             true
         );
 
+        // Draw description text
         bodyFont.draw(batch, layout, textX, textY);
 
         textY -= layout.height + 30f;
@@ -125,11 +159,12 @@ public class PlanetFactsPanel {
         return textY;
     }
 
-    // Draws the "Key Stats" section — stat label on the left, value next to it measured to avoid overlap
+    // Draws the list of planet statistics
     private float renderStats(PlanetDataComponent data,
                               float textX,
                               float textY) {
 
+        // Draw section header
         headerFont.draw(batch, "Key Stats", textX, textY);
 
         textY -= 45f;
@@ -140,13 +175,15 @@ public class PlanetFactsPanel {
 
             for (Map.Entry<String, String> stat : stats.entrySet()) {
 
+                // Draw stat label
                 String label = stat.getKey() + ":";
 
                 bodyFont.draw(batch, label, textX, textY);
 
-                // Measure the label so the value starts immediately to the right of the colon
+                // Measure label width so value can be aligned next to it
                 layout.setText(bodyFont, label);
 
+                // Draw stat value
                 statFont.draw(
                     batch,
                     stat.getValue(),
@@ -161,20 +198,21 @@ public class PlanetFactsPanel {
         return textY;
     }
 
-    // Draws the "Fun Facts" section — each fact rendered inside a subtle card background
+    // Draws fact cards containing interesting information
     private void renderFacts(PlanetDataComponent data,
                              float panelWidth,
                              float panelX,
                              float textX,
                              float textY) {
 
+        // Draw section header
         headerFont.draw(batch, "Fun Facts", textX, textY);
 
         textY -= 50f;
 
         for (PlanetData.Fact fact : data.getFacts()) {
 
-            // Measure wrapped fact text before drawing the card background so the card height fits the content
+            // Measure wrapped fact paragraph
             layout.setText(
                 bodyFont,
                 fact.getText(),
@@ -186,8 +224,9 @@ public class PlanetFactsPanel {
 
             float cardHeight = layout.height + 60f;
 
-            batch.end(); // end batch to switch to ShapeRenderer for the card background
+            batch.end();
 
+            // Draw card background
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
             shapeRenderer.setColor(0.08f, 0.08f, 0.18f, 1f);
 
@@ -200,22 +239,23 @@ public class PlanetFactsPanel {
 
             shapeRenderer.end();
 
-            batch.begin(); // resume batch to draw text on top of the card
+            batch.begin();
 
-            // Fact title in yellow to distinguish it from the body text
+            // Draw fact title
             headerFont.setColor(Color.YELLOW);
             headerFont.draw(batch, fact.getTitle(), textX, textY);
-            headerFont.setColor(Color.CYAN); // reset to cyan for subsequent headers
+            headerFont.setColor(Color.CYAN);
 
             textY -= 35f;
 
+            // Draw fact text
             bodyFont.draw(batch, layout, textX, textY);
 
             textY -= layout.height + 50f;
         }
     }
 
-    // Draws keyboard shortcut hints at the bottom of the panel to guide users through comparison mode
+    // Draw keyboard instructions at the bottom of the panel
     private void renderControls(float panelX, float panelWidth, float panelBottomY) {
 
         float textX = panelX + PADDING;
@@ -232,5 +272,73 @@ public class PlanetFactsPanel {
         textY -= 30f;
 
         bodyFont.draw(batch, "ESC : Return to Solar System", textX, textY);
+    }
+
+    // Draws a "PLAY GAME" button at the bottom of the panel for planets that have a minigame
+    // Button is drawn as a filled rect with centered text — click detection is handled in checkPlayGameClick()
+    private void renderPlayGameButton(String planetName, float panelX, float panelWidth, float panelBottomY) {
+
+        if (!gameCallbacks.containsKey(planetName)) return;
+
+        float btnWidth  = panelWidth - PADDING * 2;
+        float btnHeight = 55f;
+        float btnX      = panelX + PADDING;
+        float btnY      = panelBottomY + 180f; // sits above the controls section
+
+        batch.end();
+
+        // Draw button background
+        shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0.1f, 0.5f, 0.2f, 1f);
+        shapeRenderer.rect(btnX, btnY, btnWidth, btnHeight);
+        shapeRenderer.end();
+
+        // Draw button border
+        shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Line);
+        shapeRenderer.setColor(0.3f, 1f, 0.4f, 1f);
+        shapeRenderer.rect(btnX, btnY, btnWidth, btnHeight);
+        shapeRenderer.end();
+
+        batch.begin();
+
+        // Draw centered label
+        com.badlogic.gdx.graphics.g2d.GlyphLayout btnLayout = new com.badlogic.gdx.graphics.g2d.GlyphLayout(headerFont, "PLAY GAME");
+        headerFont.setColor(com.badlogic.gdx.graphics.Color.WHITE);
+        headerFont.draw(batch,
+            btnLayout,
+            btnX + (btnWidth  - btnLayout.width)  / 2f,
+            btnY + (btnHeight + btnLayout.height) / 2f
+        );
+        headerFont.setColor(com.badlogic.gdx.graphics.Color.CYAN);
+    }
+
+    // Called by SolarSystemMap each frame during presentation mode to detect clicks on the Play Game button
+    // Returns true and fires the callback if the mouse is inside the button bounds on a click frame
+    public boolean checkPlayGameClick(String planetName, float mouseX, float mouseY, boolean wasClicked) {
+
+        if (!gameCallbacks.containsKey(planetName)) return false;
+        if (!wasClicked) return false;
+
+        float screenWidth  = viewport.getWorldWidth();
+        float screenHeight = viewport.getWorldHeight();
+
+        float panelWidth  = screenWidth * 0.42f;
+        float panelX      = screenWidth - panelWidth - PADDING;
+        float panelBottomY = PADDING;
+
+        float btnWidth  = panelWidth - PADDING * 2;
+        float btnHeight = 55f;
+        float btnX      = panelX + PADDING;
+        float btnY      = panelBottomY + 180f;
+
+        boolean inside = mouseX >= btnX && mouseX <= btnX + btnWidth &&
+                         mouseY >= btnY && mouseY <= btnY + btnHeight;
+
+        if (inside) {
+            gameCallbacks.get(planetName).run();
+            return true;
+        }
+
+        return false;
     }
 }
