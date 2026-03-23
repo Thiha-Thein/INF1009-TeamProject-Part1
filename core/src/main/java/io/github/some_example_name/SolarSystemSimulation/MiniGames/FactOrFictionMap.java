@@ -28,6 +28,7 @@ import io.github.some_example_name.AbstractEngine.IOManagement.IOManager;
 import io.github.some_example_name.AbstractEngine.ScreenManagement.ISimulation;
 import io.github.some_example_name.AbstractEngine.UIManagement.*;
 import io.github.some_example_name.SolarSystemSimulation.MiniGames.MinigameData.FactOrFictionQuestion;
+import io.github.some_example_name.SolarSystemSimulation.ScaleUtil;
 
 // Fact or Fiction minigame — assigned to Earth in the solar system
 // A statement about the solar system is shown and the player picks TRUE or FALSE
@@ -151,10 +152,10 @@ public class FactOrFictionMap implements ISimulation {
             new FreeTypeFontGenerator.FreeTypeFontParameter();
 
         // generate each size in order then dispose the generator to free memory
-        param.size = 46; titleFont = generator.generateFont(param);
-        param.size = 32; headerFont = generator.generateFont(param);
-        param.size = 26; bodyFont = generator.generateFont(param);
-        param.size = 28; statFont = generator.generateFont(param);
+        param.size = ScaleUtil.fontSize(46); titleFont = generator.generateFont(param);
+        param.size = ScaleUtil.fontSize(32); headerFont = generator.generateFont(param);
+        param.size = ScaleUtil.fontSize(26); bodyFont = generator.generateFont(param);
+        param.size = ScaleUtil.fontSize(28); statFont = generator.generateFont(param);
 
         generator.dispose();
     }

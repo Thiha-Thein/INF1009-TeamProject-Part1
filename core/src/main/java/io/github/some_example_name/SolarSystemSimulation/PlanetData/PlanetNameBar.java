@@ -10,6 +10,7 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
 import io.github.some_example_name.SolarSystemSimulation.*;
+import io.github.some_example_name.SolarSystemSimulation.ScaleUtil;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -52,7 +53,7 @@ public class PlanetNameBar {
         FreeTypeFontGenerator.FreeTypeFontParameter param =
             new FreeTypeFontGenerator.FreeTypeFontParameter();
 
-        param.size = 50;
+        param.size = ScaleUtil.fontSize(50);
         param.color = Color.WHITE;
 
         nameFont = generator.generateFont(param);

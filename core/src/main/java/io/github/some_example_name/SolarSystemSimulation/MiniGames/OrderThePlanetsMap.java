@@ -28,6 +28,7 @@ import io.github.some_example_name.AbstractEngine.EntityManagement.Transform;
 import io.github.some_example_name.AbstractEngine.IOManagement.IOManager;
 import io.github.some_example_name.AbstractEngine.ScreenManagement.ISimulation;
 import io.github.some_example_name.AbstractEngine.UIManagement.*;
+import io.github.some_example_name.SolarSystemSimulation.ScaleUtil;
 
 // Order the Planets minigame — assigned to Jupiter
 // Player arranges all 9 bodies (including the Sun) smallest to largest by diameter
@@ -190,10 +191,10 @@ public class OrderThePlanetsMap implements ISimulation {
         FreeTypeFontGenerator.FreeTypeFontParameter param =
             new FreeTypeFontGenerator.FreeTypeFontParameter();
 
-        param.size = 46; titleFont = generator.generateFont(param);
-        param.size = 32; headerFont = generator.generateFont(param);
-        param.size = 26; bodyFont = generator.generateFont(param);
-        param.size = 28; statFont = generator.generateFont(param);
+        param.size = ScaleUtil.fontSize(46); titleFont = generator.generateFont(param);
+        param.size = ScaleUtil.fontSize(32); headerFont = generator.generateFont(param);
+        param.size = ScaleUtil.fontSize(26); bodyFont = generator.generateFont(param);
+        param.size = ScaleUtil.fontSize(28); statFont = generator.generateFont(param);
 
         generator.dispose();
     }

@@ -28,6 +28,7 @@ import io.github.some_example_name.AbstractEngine.IOManagement.IOManager;
 import io.github.some_example_name.AbstractEngine.ScreenManagement.ISimulation;
 import io.github.some_example_name.AbstractEngine.UIManagement.*;
 import io.github.some_example_name.SolarSystemSimulation.MiniGames.MinigameData.MatchQuestion;
+import io.github.some_example_name.SolarSystemSimulation.ScaleUtil;
 
 // Match the Planet minigame — assigned to Saturn in the solar system
 // A fun fact clue is shown and the player picks which planet it belongs to
@@ -167,10 +168,10 @@ public class MatchThePlanetMap implements ISimulation {
         FreeTypeFontGenerator.FreeTypeFontParameter param =
             new FreeTypeFontGenerator.FreeTypeFontParameter();
 
-        param.size = 46; titleFont = generator.generateFont(param);
-        param.size = 32; headerFont = generator.generateFont(param);
-        param.size = 26; bodyFont = generator.generateFont(param);
-        param.size = 28; statFont = generator.generateFont(param);
+        param.size = ScaleUtil.fontSize(46); titleFont = generator.generateFont(param);
+        param.size = ScaleUtil.fontSize(32); headerFont = generator.generateFont(param);
+        param.size = ScaleUtil.fontSize(26); bodyFont = generator.generateFont(param);
+        param.size = ScaleUtil.fontSize(28); statFont = generator.generateFont(param);
 
         // done generating — free the font file from memory
         generator.dispose();

@@ -24,6 +24,7 @@ import io.github.some_example_name.AbstractEngine.ScreenManagement.*;
 import io.github.some_example_name.AbstractEngine.AIManagement.*;
 import io.github.some_example_name.SolarSystemSimulation.PlanetData.*;
 import io.github.some_example_name.SolarSystemSimulation.PlanetInteractive.*;
+import io.github.some_example_name.SolarSystemSimulation.ScaleUtil;
 
 // the main solar system world — shows the sun and all planets orbiting it
 // handles planet selection, presentation mode, size comparison and minigame launch
@@ -139,12 +140,13 @@ public class SolarSystemMap implements ISimulation {
         float cy = (screenHeight - 600f) / 2f + 300f;
 
         // create the sun — it has no parent because it does not orbit anything
-        PlanetObj sun = PlanetFactory.create("Sun", 1000f, 400f, "planets/sun.png", null, -1, 0f);
+        float sunSize = ScaleUtil.px(400f);
+        PlanetObj sun = PlanetFactory.create("Sun", 1000f, sunSize, "planets/sun.png", null, -1, 0f);
 
         // position the sun in the center of the screen
         sun.setInitialPosition(
-            (screenWidth - 400f) / 2f,
-            (screenHeight - 400f) / 2f
+            (screenWidth - sunSize) / 2f,
+            (screenHeight - sunSize) / 2f
         );
 
         orderedPlanets.clear();
@@ -156,7 +158,7 @@ public class SolarSystemMap implements ISimulation {
             PlanetObj planet = PlanetFactory.create(
                 (String) def[0],
                 (float) def[1],
-                (float) def[2],
+                ScaleUtil.px((float) def[2]),
                 (String) def[3],
                 sun,
                 (int) def[4],
@@ -231,19 +233,19 @@ public class SolarSystemMap implements ISimulation {
             new FreeTypeFontGenerator.FreeTypeFontParameter();
 
         // title size for panel headings
-        param.size = 46;
+        param.size = ScaleUtil.fontSize(46);
         titleFont = generator.generateFont(param);
 
         // header size for section labels
-        param.size = 32;
+        param.size = ScaleUtil.fontSize(32);
         headerFont = generator.generateFont(param);
 
         // body size for regular text
-        param.size = 26;
+        param.size = ScaleUtil.fontSize(26);
         bodyFont = generator.generateFont(param);
 
         // stat size for numbers and smaller labels
-        param.size = 28;
+        param.size = ScaleUtil.fontSize(28);
         statFont = generator.generateFont(param);
 
         // done generating — free the font file from memory
@@ -253,7 +255,7 @@ public class SolarSystemMap implements ISimulation {
         FreeTypeFontGenerator labelGen = new FreeTypeFontGenerator(Gdx.files.internal("fonts/star_crush.ttf"));
 
         FreeTypeFontGenerator.FreeTypeFontParameter labelParam = new FreeTypeFontGenerator.FreeTypeFontParameter();
-        labelParam.size = 28;
+        labelParam.size = ScaleUtil.fontSize(28);
         font = labelGen.generateFont(labelParam);
 
         labelGen.dispose();
