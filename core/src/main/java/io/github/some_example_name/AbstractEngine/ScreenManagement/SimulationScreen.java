@@ -6,8 +6,9 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
+import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.utils.viewport.FitViewport;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,6 +31,7 @@ public class SimulationScreen extends AbstractScreen {
     private final SpriteBatch batch;
     // maps screen coordinates to world coordinates
     private Viewport viewport;
+    private OrthographicCamera camera;
 
     // stores every available world by name so we can switch between them
     private final Map<String, ISimulation> worlds = new HashMap<>();
@@ -178,7 +180,13 @@ public class SimulationScreen extends AbstractScreen {
     @Override
     public void show() {
 
-        viewport = new ScreenViewport();
+        camera = new OrthographicCamera();
+
+        // 2560x1440 = your design resolution
+        viewport = new FitViewport(2560, 1440, camera);
+
+        // apply once
+        viewport.apply();
 
         // generate the font used on the back button from a ttf file
         FreeTypeFontGenerator generator =

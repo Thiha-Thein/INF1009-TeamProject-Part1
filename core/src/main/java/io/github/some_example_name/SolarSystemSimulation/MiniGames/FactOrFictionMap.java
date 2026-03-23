@@ -469,8 +469,7 @@ public class FactOrFictionMap implements ISimulation {
 
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
             // TRUE button is green if the correct answer is true, red otherwise
-            shapeRenderer.setColor(correctIsTrue ? 0.1f : 0.5f,
-                                   correctIsTrue ? 0.5f : 0.1f, 0.1f, 1f);
+            shapeRenderer.setColor(correctIsTrue ? 0.1f : 0.5f, correctIsTrue ? 0.5f : 0.1f, 0.1f, 1f);
             shapeRenderer.rect(startX, btnY, btnW, btnH);
             // FALSE button is the opposite color
             shapeRenderer.setColor(!correctIsTrue ? 0.1f : 0.5f,
