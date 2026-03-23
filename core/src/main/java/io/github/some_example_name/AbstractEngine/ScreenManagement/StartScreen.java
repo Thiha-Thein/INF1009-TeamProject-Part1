@@ -12,14 +12,14 @@ import com.badlogic.gdx.utils.viewport.Viewport;
 import io.github.some_example_name.AbstractEngine.IOManagement.*;
 import io.github.some_example_name.AbstractEngine.AudioManagement.*;
 import io.github.some_example_name.AbstractEngine.UIManagement.*;
+import io.github.some_example_name.SolarSystemSimulation.ScaleUtil;
 
 // Main menu screen — displays Simulation and Quit buttons against a space background
-// Receives a reference to SimulationScreen so it can call loadWorld() before switching to it
 public class StartScreen extends AbstractScreen {
 
     private final IOManager ioManager;
     private final SoundManager soundManager;
-    private final SimulationScreen simulationScreen; // held so the button callback can trigger world loading
+    private final SimulationScreen simulationScreen;
 
     private SpriteBatch batch;
     private Texture backgroundTexture;
@@ -36,9 +36,7 @@ public class StartScreen extends AbstractScreen {
                        SpriteBatch batch,
                        SoundManager soundManager,
                        SimulationScreen simulationScreen) {
-
         super(manager);
-
         this.ioManager = ioManager;
         this.batch = batch;
         this.soundManager = soundManager;
@@ -46,7 +44,6 @@ public class StartScreen extends AbstractScreen {
     }
 
     @Override
-    // Called when this screen becomes active — safe to load assets here because GL context is guaranteed
     public void show() {
 
         viewport = new ScreenViewport();
@@ -56,21 +53,22 @@ public class StartScreen extends AbstractScreen {
         FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.internal("fonts/star_crush.ttf"));
         FreeTypeFontGenerator.FreeTypeFontParameter parameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
 
-        parameter.size = 140;
+        // Scale font size to current screen — was 140 at 2560-wide reference
+        parameter.size = ScaleUtil.fontSize(140);
         font = generator.generateFont(parameter);
         generator.dispose();
 
         uiManager.addLayer(uiLayer);
 
-        float centerX = Gdx.graphics.getWidth() / 2f;
-        float centerY = Gdx.graphics.getHeight() / 2f;
-        float buttonWidth = 450;
-        float buttonHeight = 100;
+        float centerX      = Gdx.graphics.getWidth()  / 2f;
+        float centerY      = Gdx.graphics.getHeight() / 2f;
+        float buttonWidth  = ScaleUtil.px(450f);
+        float buttonHeight = ScaleUtil.px(100f);
 
-        // Simulation button — loads the solar system world then switches to SimulationScreen
+        // Simulation button
         UIButton simulationButton = new UIButton("SIMULATION", font);
         simulationButton.setSize(buttonWidth, buttonHeight);
-        simulationButton.setPosition(centerX - buttonWidth / 2f, centerY + 50);
+        simulationButton.setPosition(centerX - buttonWidth / 2f, centerY + ScaleUtil.px(50f));
 
         simulationButton.setOnClick(() -> {
             soundManager.playSound("ui_click");
@@ -78,10 +76,10 @@ public class StartScreen extends AbstractScreen {
             manager.setScreen("simulation");
         });
 
-        // Quit button — exits the application cleanly via LibGDX's platform-safe exit
+        // Quit button
         UIButton quitButton = new UIButton("QUIT", font);
         quitButton.setSize(buttonWidth, buttonHeight);
-        quitButton.setPosition(centerX - buttonWidth / 2f, centerY - 120);
+        quitButton.setPosition(centerX - buttonWidth / 2f, centerY - ScaleUtil.px(120f));
 
         quitButton.setOnClick(() -> {
             soundManager.playSound("ui_click");
@@ -91,18 +89,14 @@ public class StartScreen extends AbstractScreen {
         uiLayer.add(simulationButton);
         uiLayer.add(quitButton);
 
-        // UIInputSystem handles converting unprojected mouse coordinates into button click events
         uiInputSystem = new UIInputSystem(ioManager, uiManager);
     }
 
     @Override
     public void update(float deltaTime) {
-
-        // Unproject mouse from screen pixels to world units before passing to UI hit-testing
         Vector2 mouse = viewport.unproject(
             new Vector2(ioManager.getMouseX(), ioManager.getMouseY())
         );
-
         uiInputSystem.update(mouse.x, mouse.y);
         uiManager.update(deltaTime);
     }
@@ -112,17 +106,11 @@ public class StartScreen extends AbstractScreen {
         viewport.apply();
         batch.setProjectionMatrix(viewport.getCamera().combined);
         batch.begin();
-        // Background fills the entire world area regardless of window size
-        batch.draw(backgroundTexture,
-            0, 0,
-            viewport.getWorldWidth(),
-            viewport.getWorldHeight()
-        );
+        batch.draw(backgroundTexture, 0, 0, viewport.getWorldWidth(), viewport.getWorldHeight());
         uiManager.render(batch);
         batch.end();
     }
 
-    // These lifecycle methods are empty — assets are recreated in show() each time the screen becomes active
     @Override public void dispose() {}
     @Override public void hide() {}
     @Override public void pause() {}
