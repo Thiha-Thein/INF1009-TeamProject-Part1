@@ -14,20 +14,11 @@ import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
-import io.github.some_example_name.AbstractEngine.AudioManagement.AudioSystem;
-import io.github.some_example_name.AbstractEngine.AudioManagement.SoundEventComponent;
-import io.github.some_example_name.AbstractEngine.AudioManagement.SoundManager;
-import io.github.some_example_name.AbstractEngine.CollisionManagement.Collider;
-import io.github.some_example_name.AbstractEngine.CollisionManagement.CollisionManager;
-import io.github.some_example_name.AbstractEngine.CollisionManagement.ICollision;
-import io.github.some_example_name.AbstractEngine.EntityManagement.AbstractEntity;
-import io.github.some_example_name.AbstractEngine.EntityManagement.AnimationRenderer;
-import io.github.some_example_name.AbstractEngine.EntityManagement.EntityManager;
-import io.github.some_example_name.AbstractEngine.EntityManagement.Transform;
+import io.github.some_example_name.AbstractEngine.AudioManagement.*;
+import io.github.some_example_name.AbstractEngine.CollisionManagement.*;
+import io.github.some_example_name.AbstractEngine.EntityManagement.*;
 import io.github.some_example_name.AbstractEngine.IOManagement.IOManager;
 import io.github.some_example_name.AbstractEngine.ScreenManagement.ISimulation;
 import io.github.some_example_name.AbstractEngine.UIManagement.*;
