@@ -124,6 +124,7 @@ public class SimulationScreen extends AbstractScreen {
                 soundManager,
                 entityManager,
                 audioSystem,
+                movementManager,
                 () -> loadWorld("solarSystem")
             )
         );
@@ -135,6 +136,7 @@ public class SimulationScreen extends AbstractScreen {
                 soundManager,
                 entityManager,
                 audioSystem,
+                collisionManager,
                 () -> loadWorld("solarSystem")
             )
         );
@@ -166,6 +168,9 @@ public class SimulationScreen extends AbstractScreen {
         currentWorld = worlds.get(name);
 
         if (currentWorld != null) {
+            // inject the shared engine viewport before the world sets itself up
+            // worlds that manage their own viewport (SolarSystemMap) ignore this via the default no-op
+            if (viewport != null) currentWorld.setViewport(viewport);
             // set up the new world and give it the current screen size
             currentWorld.initialize();
 

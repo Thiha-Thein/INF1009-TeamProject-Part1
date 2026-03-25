@@ -12,6 +12,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import com.badlogic.gdx.utils.viewport.Viewport;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -50,8 +51,8 @@ public class FactOrFictionMap implements ISimulation {
     private final Runnable onReturn;
 
     private Texture background;
-    private OrthographicCamera camera;
-    private ScreenViewport viewport;
+    // shared viewport injected by SimulationScreen — avoids creating a second camera
+    private Viewport viewport;
     private ShapeRenderer shapeRenderer;
 
     // fonts match PlanetFactsPanel sizes so the UI looks consistent
@@ -114,14 +115,22 @@ public class FactOrFictionMap implements ISimulation {
     }
 
 
-    // sets up the camera, fonts, UI, background planet, loads questions and shows the instruction screen
+    // receives the shared FitViewport from SimulationScreen before initialize() is called
+    @Override
+    public void setViewport(Viewport viewport) {
+        this.viewport = viewport;
+    }
+
+    // sets up fonts, UI, background planet, loads questions and shows the instruction screen
     @Override
     public void initialize() {
 
-        // set up camera and match it to the current window size
-        camera = new OrthographicCamera();
-        viewport = new ScreenViewport(camera);
-        viewport.update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
+        // if SimulationScreen did not inject a viewport, fall back to a local ScreenViewport
+        if (viewport == null) {
+            OrthographicCamera camera = new OrthographicCamera();
+            viewport = new ScreenViewport(camera);
+            viewport.update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
+        }
 
         shapeRenderer = new ShapeRenderer();
         background = new Texture("planets/spaceBackground.png");
@@ -297,8 +306,8 @@ public class FactOrFictionMap implements ISimulation {
         // ESC always exits the minigame regardless of which state we are in
         if (ioManager.wasPressed("escape")) { onReturn.run(); return; }
 
-        // advance animation frames and process any pending sound events
-        entityManager.updateAll(deltaTime);
+        // audioSystem processes sound events queued by entities this frame
+        // entityManager.updateAll() is already called by GameMaster's update loop — do not call it again here
         audioSystem.update(entityManager.getEntities());
 
         switch (gameState) {
@@ -334,8 +343,8 @@ public class FactOrFictionMap implements ISimulation {
     public void render(SpriteBatch batch) {
 
         viewport.apply();
-        batch.setProjectionMatrix(camera.combined);
-        shapeRenderer.setProjectionMatrix(camera.combined);
+        batch.setProjectionMatrix(viewport.getCamera().combined);
+        shapeRenderer.setProjectionMatrix(viewport.getCamera().combined);
 
         // draw the faint background planet sprite through the entity manager
         batch.begin();

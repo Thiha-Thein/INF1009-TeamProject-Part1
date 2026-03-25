@@ -2,6 +2,7 @@ package io.github.some_example_name.AbstractEngine.ScreenManagement;
 
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.utils.viewport.Viewport;
 
 import java.util.Map;
 
@@ -32,4 +33,9 @@ public interface ISimulation {
     // Default empty body means worlds that do not need callbacks ignore it silently
     // This avoids SimulationScreen needing to cast to a concrete type
     default void setGameCallbacks(Map<String, Runnable> callbacks) {}
+
+    // Optional — SimulationScreen injects its shared FitViewport before calling initialize()
+    // Minigames override this to receive the engine viewport instead of creating their own
+    // Default empty body means worlds that manage their own viewport (e.g. SolarSystemMap) are unaffected
+    default void setViewport(Viewport viewport) {}
 }

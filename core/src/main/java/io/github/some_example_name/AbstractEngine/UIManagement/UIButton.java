@@ -47,18 +47,24 @@ public class UIButton extends UIElement {
             onClick.run();
     }
 
-    // Hit-test against the text bounding box expanded by PAD_X / PAD_Y on every side.
-    // This means the click area is always the right size for the actual rendered text,
-    // regardless of any external setSize() call.
+    // Hit-test logic:
+    //   • If setSize() was called with non-zero dimensions (e.g. an invisible sprite button),
+    //     use the full (x, y, width, height) rect as-is — the caller sized it to match the sprite.
+    //   • Otherwise fall back to text-bounding-box + padding, which is correct for labelled buttons
+    //     whose visual size is determined by their text content.
     @Override
     public boolean contains(float mx, float my) {
         if (layoutDirty) rebuildLayout();
 
-        // Center of button rect (set externally via setPosition + setSize)
-        // Fall back to text-derived center if width/height were never set
-        float cx = (width  > 0) ? x + width  / 2f : x + glyphLayout.width  / 2f;
-        float cy = (height > 0) ? y + height / 2f : y + glyphLayout.height / 2f;
+        if (width > 0 && height > 0) {
+            // Explicit size set — treat the whole rect as the hitbox
+            return mx >= x && mx <= x + width &&
+                   my >= y && my <= y + height;
+        }
 
+        // No explicit size — derive hitbox from rendered text + padding
+        float cx = x + glyphLayout.width  / 2f;
+        float cy = y + glyphLayout.height / 2f;
         float halfW = glyphLayout.width  / 2f + PAD_X;
         float halfH = glyphLayout.height / 2f + PAD_Y;
 

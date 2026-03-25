@@ -12,6 +12,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import com.badlogic.gdx.utils.viewport.Viewport;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,6 +27,8 @@ import io.github.some_example_name.AbstractEngine.EntityManagement.AnimationRend
 import io.github.some_example_name.AbstractEngine.EntityManagement.EntityManager;
 import io.github.some_example_name.AbstractEngine.EntityManagement.Transform;
 import io.github.some_example_name.AbstractEngine.IOManagement.IOManager;
+import io.github.some_example_name.AbstractEngine.MovementManagement.MovementComponent;
+import io.github.some_example_name.AbstractEngine.MovementManagement.MovementManager;
 import io.github.some_example_name.AbstractEngine.ScreenManagement.ISimulation;
 import io.github.some_example_name.AbstractEngine.UIManagement.*;
 import io.github.some_example_name.SolarSystemSimulation.ScaleUtil;
@@ -78,12 +81,13 @@ public class OrderThePlanetsMap implements ISimulation {
     private final SoundManager soundManager;
     private final EntityManager entityManager;
     private final AudioSystem audioSystem;
+    private final MovementManager movementManager;
     // called when the player presses ESC to return to the solar system
     private final Runnable onReturn;
 
     private Texture background;
-    private OrthographicCamera camera;
-    private ScreenViewport viewport;
+    // shared viewport injected by SimulationScreen — avoids creating a second camera
+    private Viewport viewport;
     private ShapeRenderer shapeRenderer;
 
     // four font sizes matching the facts panel style
@@ -152,6 +156,7 @@ public class OrderThePlanetsMap implements ISimulation {
                               SoundManager soundManager,
                               EntityManager entityManager,
                               AudioSystem audioSystem,
+                              MovementManager movementManager,
                               Runnable onReturn) {
 
         this.batch = batch;
@@ -159,16 +164,26 @@ public class OrderThePlanetsMap implements ISimulation {
         this.soundManager = soundManager;
         this.entityManager = entityManager;
         this.audioSystem = audioSystem;
+        this.movementManager = movementManager;
         this.onReturn = onReturn;
+    }
+
+    // receives the shared FitViewport from SimulationScreen before initialize() is called
+    @Override
+    public void setViewport(Viewport viewport) {
+        this.viewport = viewport;
     }
 
     // sets up the camera, fonts, UI, sound entity and shows the instruction screen
     @Override
     public void initialize() {
 
-        camera = new OrthographicCamera();
-        viewport = new ScreenViewport(camera);
-        viewport.update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
+        // if SimulationScreen did not inject a viewport, fall back to a local ScreenViewport
+        if (viewport == null) {
+            OrthographicCamera camera = new OrthographicCamera();
+            viewport = new ScreenViewport(camera);
+            viewport.update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
+        }
 
         shapeRenderer = new ShapeRenderer();
         background = new Texture("planets/spaceBackground.png");
@@ -247,7 +262,7 @@ public class OrderThePlanetsMap implements ISimulation {
     }
 
     // spawns one AnimationRenderer entity per planet positioned in the shuffled top row
-    // also creates invisible UIButtons for click detection and records home/target positions
+    // each entity carries a MovementComponent so MovementManager drives its position via lerp
     private void buildPlanetEntities() {
 
         // remove any planet entities left over from a previous round
@@ -284,11 +299,18 @@ public class OrderThePlanetsMap implements ISimulation {
             homeX[i] = currentX[i] = targetX[i] = px;
             homeY[i] = currentY[i] = targetY[i] = py;
 
+            // capture array references for use inside the anonymous class
+            final float[] cxRef = currentX;
+            final float[] cyRef = currentY;
+            final float[] txRef = targetX;
+            final float[] tyRef = targetY;
+
             planetEntities[i] = new AbstractEntity() {
 
                 @Override
                 public void start() {
                     transform = new Transform(px, py, sprSize, sprSize);
+
                     AnimationRenderer ar = new AnimationRenderer();
                     ar.addAnimation("spin", SPRITE_PATHS.getOrDefault(name, "planets/earth.png"), 30, 8, 0.08f, true);
                     // sun and saturn sprites appear smaller due to corona/rings — bump up scale to match SolarSystemMap
@@ -296,9 +318,30 @@ public class OrderThePlanetsMap implements ISimulation {
                     if (name.equals("Saturn")) ar.setScale(2.7f);
                     setAnimationRenderer(ar);
                     setTag("order_" + name);
+
+                    // attach a MovementComponent so MovementManager owns position updates
+                    // speed is 0 because we drive position via moveTo() not directional velocity
+                    MovementComponent movement = new MovementComponent(transform, 0);
+                    addComponent(MovementComponent.class, movement);
                 }
 
-                @Override public void update(float delta) {}
+                // lerp toward the current target each frame using MovementComponent.moveTo()
+                // this replaces the inline lerp that was previously in OrderThePlanetsMap.update()
+                @Override
+                public void update(float delta) {
+                    MovementComponent movement = getComponent(MovementComponent.class);
+                    if (movement == null) return;
+
+                    cxRef[idx] += (txRef[idx] - cxRef[idx]) * LERP_SPEED * delta;
+                    cyRef[idx] += (tyRef[idx] - cyRef[idx]) * LERP_SPEED * delta;
+
+                    // moveTo() is the engine's absolute-position setter — same method OrbitalComponent uses
+                    movement.moveTo(cxRef[idx], cyRef[idx]);
+
+                    // keep the card button hitbox in sync with the sprite position
+                    cardButtons[idx].setPosition(cxRef[idx], cyRef[idx]);
+                }
+
                 @Override public void resize(int w, int h) {}
             };
 
@@ -449,8 +492,8 @@ public class OrderThePlanetsMap implements ISimulation {
 
         if (ioManager.wasPressed("escape")) { onReturn.run(); return; }
 
-        // advance animation frames and process pending sound events
-        entityManager.updateAll(deltaTime);
+        // audioSystem processes sound events queued by entities this frame
+        // entityManager.updateAll() is already called by GameMaster's update loop — do not call it again here
         audioSystem.update(entityManager.getEntities());
 
         switch (gameState) {
@@ -461,28 +504,15 @@ public class OrderThePlanetsMap implements ISimulation {
                 break;
 
             case PLAYING:
-                // lerp each planet sprite toward its current target position
-                for (int i = 0; i < PLANET_COUNT; i++) {
-                    currentX[i] += (targetX[i] - currentX[i]) * LERP_SPEED * deltaTime;
-                    currentY[i] += (targetY[i] - currentY[i]) * LERP_SPEED * deltaTime;
-                    // keep the entity transform and its invisible click button in sync
-                    planetEntities[i].getTransform().setPosition(new Vector2(currentX[i], currentY[i]));
-                    cardButtons[i].setPosition(currentX[i], currentY[i]);
-                }
-
+                // planet lerp is handled inside each entity's update() via MovementComponent
+                // MovementManager drives the position each frame through GameMaster's update loop
                 Vector2 mouse = viewport.unproject(new Vector2(ioManager.getMouseX(), ioManager.getMouseY()));
                 uiInputSystem.update(mouse.x, mouse.y);
                 uiManager.update(deltaTime);
                 break;
 
             case CONFIRMING:
-                // keep lerping sprites during the confirm phase
-                for (int i = 0; i < PLANET_COUNT; i++) {
-                    currentX[i] += (targetX[i] - currentX[i]) * LERP_SPEED * deltaTime;
-                    currentY[i] += (targetY[i] - currentY[i]) * LERP_SPEED * deltaTime;
-                    planetEntities[i].getTransform().setPosition(new Vector2(currentX[i], currentY[i]));
-                }
-
+                // planet lerp continues inside entity update() during confirm phase
                 // count down then switch to the result screen
                 confirmTimer -= deltaTime;
                 if (confirmTimer <= 0f) gameState = GameState.RESULT;
@@ -498,8 +528,8 @@ public class OrderThePlanetsMap implements ISimulation {
     public void render(SpriteBatch batch) {
 
         viewport.apply();
-        batch.setProjectionMatrix(camera.combined);
-        shapeRenderer.setProjectionMatrix(camera.combined);
+        batch.setProjectionMatrix(viewport.getCamera().combined);
+        shapeRenderer.setProjectionMatrix(viewport.getCamera().combined);
 
         switch (gameState) {
             case INSTRUCTIONS: renderInstructions(); break;
@@ -611,8 +641,8 @@ public class OrderThePlanetsMap implements ISimulation {
             // outline — brighter when the slot is occupied
             shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
             shapeRenderer.setColor(playerSlots[i] != null
-                ? new Color(0.4f, 0.7f, 1f, 0.8f)
-                : new Color(0.2f, 0.3f, 0.6f, 0.35f));
+                ? Color.WHITE
+                : new Color(1f, 1f, 1f, 0.5f));
             shapeRenderer.circle(slotCX[i], slotCY[i], r);
             shapeRenderer.end();
         }
@@ -629,7 +659,7 @@ public class OrderThePlanetsMap implements ISimulation {
 
         // SMALLEST and LARGEST labels at the ends of the slot row
         batch.begin();
-        statFont.setColor(new Color(0.5f, 0.7f, 1f, 0.5f));
+        statFont.setColor(Color.WHITE);
         layout.setText(statFont, "SMALLEST");
         statFont.draw(batch, layout, slotCX[0] - layout.width / 2f, sh * 0.14f);
         layout.setText(statFont, "LARGEST");
@@ -710,8 +740,8 @@ public class OrderThePlanetsMap implements ISimulation {
         uiManager.render(batch);
 
         // ESC hint at the bottom of the screen
-        layout.setText(bodyFont, "ESC  —  Return to Solar System", Color.DARK_GRAY, sw, Align.center, false);
-        bodyFont.setColor(Color.DARK_GRAY);
+        layout.setText(bodyFont, "ESC  —  Return to Solar System", new Color(0.7f, 0.7f, 0.7f, 1f), sw, Align.center, false);
+        bodyFont.setColor(new Color(0.7f, 0.7f, 0.7f, 1f));
         bodyFont.draw(batch, layout, 0, 30f);
         bodyFont.setColor(Color.WHITE);
 

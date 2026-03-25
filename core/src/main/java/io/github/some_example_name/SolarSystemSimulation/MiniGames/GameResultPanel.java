@@ -6,7 +6,7 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.Align;
-import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import com.badlogic.gdx.utils.viewport.Viewport;
 
 // draws the result screen shown at the end of every minigame
 // takes a score and total, then draws a centered panel with a message and an ESC instruction
@@ -15,7 +15,7 @@ public class GameResultPanel {
     // rendering tools passed in from the parent map, not created here
     private final SpriteBatch batch;
     private final ShapeRenderer shapeRenderer;
-    private final ScreenViewport viewport;
+    private final Viewport viewport;
 
     // three font sizes used for different lines of text on the panel
     private final BitmapFont titleFont;   // size 46 — used for the "RESULTS" heading
@@ -35,7 +35,7 @@ public class GameResultPanel {
     // constructor — stores all the rendering tools and fonts passed in from the minigame
     public GameResultPanel(SpriteBatch batch,
                            ShapeRenderer shapeRenderer,
-                           ScreenViewport viewport,
+                           Viewport viewport,
                            BitmapFont titleFont,
                            BitmapFont headerFont,
                            BitmapFont bodyFont) {

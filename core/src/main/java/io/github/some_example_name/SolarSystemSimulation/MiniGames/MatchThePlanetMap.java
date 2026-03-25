@@ -12,6 +12,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import com.badlogic.gdx.utils.viewport.Viewport;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -20,6 +21,9 @@ import java.util.List;
 import io.github.some_example_name.AbstractEngine.AudioManagement.AudioSystem;
 import io.github.some_example_name.AbstractEngine.AudioManagement.SoundEventComponent;
 import io.github.some_example_name.AbstractEngine.AudioManagement.SoundManager;
+import io.github.some_example_name.AbstractEngine.CollisionManagement.Collider;
+import io.github.some_example_name.AbstractEngine.CollisionManagement.CollisionManager;
+import io.github.some_example_name.AbstractEngine.CollisionManagement.ICollision;
 import io.github.some_example_name.AbstractEngine.EntityManagement.AbstractEntity;
 import io.github.some_example_name.AbstractEngine.EntityManagement.AnimationRenderer;
 import io.github.some_example_name.AbstractEngine.EntityManagement.EntityManager;
@@ -27,6 +31,7 @@ import io.github.some_example_name.AbstractEngine.EntityManagement.Transform;
 import io.github.some_example_name.AbstractEngine.IOManagement.IOManager;
 import io.github.some_example_name.AbstractEngine.ScreenManagement.ISimulation;
 import io.github.some_example_name.AbstractEngine.UIManagement.*;
+import io.github.some_example_name.SolarSystemSimulation.MainObject;
 import io.github.some_example_name.SolarSystemSimulation.MiniGames.MinigameData.MatchQuestion;
 import io.github.some_example_name.SolarSystemSimulation.ScaleUtil;
 
@@ -45,12 +50,13 @@ public class MatchThePlanetMap implements ISimulation {
     private final SoundManager soundManager;
     private final EntityManager entityManager;
     private final AudioSystem audioSystem;
+    private final CollisionManager collisionManager;
     // called when the player presses ESC to return to the solar system
     private final Runnable onReturn;
 
     private Texture background;
-    private OrthographicCamera camera;
-    private ScreenViewport viewport;
+    // shared viewport injected by SimulationScreen — avoids creating a second camera
+    private Viewport viewport;
     private ShapeRenderer shapeRenderer;
 
     // fonts match PlanetFactsPanel sizes so the UI looks consistent
@@ -66,10 +72,8 @@ public class MatchThePlanetMap implements ISimulation {
     private final UILayer uiLayer = new UILayer();
     private UIInputSystem uiInputSystem;
 
-    // four invisible UIButtons placed over the planet sprites for click detection
-    private final UIButton[] choiceButtons = new UIButton[4];
-
     // one entity per answer choice — rebuilt for each question
+    // each entity implements ICollision so CollisionManager detects mouse hover and click
     private final List<AbstractEntity> choiceEntities = new ArrayList<>();
 
     // minimal entity that only carries SoundEventComponent — consumed by AudioSystem each frame
@@ -126,6 +130,7 @@ public class MatchThePlanetMap implements ISimulation {
                              SoundManager soundManager,
                              EntityManager entityManager,
                              AudioSystem audioSystem,
+                             CollisionManager collisionManager,
                              Runnable onReturn) {
 
         this.batch = batch;
@@ -133,16 +138,26 @@ public class MatchThePlanetMap implements ISimulation {
         this.soundManager = soundManager;
         this.entityManager = entityManager;
         this.audioSystem = audioSystem;
+        this.collisionManager = collisionManager;
         this.onReturn = onReturn;
     }
 
-    // sets up the camera, fonts, UI, sound entity and shows the instruction screen
+    // receives the shared FitViewport from SimulationScreen before initialize() is called
+    @Override
+    public void setViewport(Viewport viewport) {
+        this.viewport = viewport;
+    }
+
+    // sets up fonts, UI, sound entity and shows the instruction screen
     @Override
     public void initialize() {
 
-        camera = new OrthographicCamera();
-        viewport = new ScreenViewport(camera);
-        viewport.update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
+        // if SimulationScreen did not inject a viewport, fall back to a local ScreenViewport
+        if (viewport == null) {
+            OrthographicCamera camera = new OrthographicCamera();
+            viewport = new ScreenViewport(camera);
+            viewport.update(Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), true);
+        }
 
         shapeRenderer = new ShapeRenderer();
         background = new Texture("planets/spaceBackground.png");
@@ -204,6 +219,12 @@ public class MatchThePlanetMap implements ISimulation {
         };
 
         entityManager.addEntity(soundEntity);
+
+        // mouse cursor entity — same pattern as SolarSystemMap's MainObject
+        // gives the cursor a Transform+Collider so CollisionManager can fire events on choice entities
+        MainObject mouseCursor = new MainObject(ioManager, viewport);
+        entityManager.addEntity(mouseCursor);
+
         entityManager.start();
     }
 
@@ -231,11 +252,9 @@ public class MatchThePlanetMap implements ISimulation {
         return pool.subList(0, Math.min(QUESTIONS_PER_ROUND, pool.size()));
     }
 
-    // removes previous choice entities and buttons, then spawns new ones for the question at pos
+    // removes previous choice entities and spawns fresh ChoiceEntity instances for the question at pos
     private void loadQuestion(int pos) {
 
-        // clean up the previous question's buttons and entities
-        for (UIButton btn : choiceButtons) if (btn != null) uiLayer.remove(btn);
         for (AbstractEntity e : choiceEntities) entityManager.removeEntity(e);
         choiceEntities.clear();
 
@@ -243,13 +262,12 @@ public class MatchThePlanetMap implements ISimulation {
         float sw = viewport.getWorldWidth();
         float sh = viewport.getWorldHeight();
 
-        // build 3 random distractors — any planet that is not the correct answer
+        // build 3 random distractors
         List<String> distractors = new ArrayList<>();
         for (String other : ALL_PLANETS)
             if (!other.equals(q.getPlanet())) distractors.add(other);
         Collections.shuffle(distractors);
 
-        // combine the correct answer with 3 distractors and shuffle so position varies
         List<String> choices = new ArrayList<>();
         choices.add(q.getPlanet());
         choices.add(distractors.get(0));
@@ -258,63 +276,72 @@ public class MatchThePlanetMap implements ISimulation {
         Collections.shuffle(choices);
         currentChoices = choices;
 
-        // lay out choices in a 2x2 grid in the lower half of the screen
         float spriteSize = sh * 0.18f;
-        float gapX = sw * 0.06f;
-        float gapY = sh * 0.04f;
-        float gridW = spriteSize * 2 + gapX;
-        float startX = (sw - gridW) / 2f;
-        float row1Y = sh * 0.32f;
-        float row0Y = row1Y - spriteSize - gapY;
+        float gapX      = sw * 0.06f;
+        float gapY      = sh * 0.04f;
+        float startX    = (sw - (spriteSize * 2 + gapX)) / 2f;
+        float row1Y     = sh * 0.32f;
+        float row0Y     = row1Y - spriteSize - gapY;
 
-        // top-left corners of each cell: [top-left, top-right, bottom-left, bottom-right]
         float[] xs = { startX, startX + spriteSize + gapX, startX, startX + spriteSize + gapX };
         float[] ys = { row1Y, row1Y, row0Y, row0Y };
 
         for (int i = 0; i < 4; i++) {
-
-            final String choice = choices.get(i);
-            final float finalX = xs[i];
-            final float finalY = ys[i];
-            final float finalSize = spriteSize;
-
-            // each choice is a proper engine entity with an AnimationRenderer
-            // entityManager drives its lifecycle the same way it does for planets in SolarSystemMap
-            AbstractEntity choiceEntity = new AbstractEntity() {
-
-                @Override
-                public void start() {
-
-                    transform = new Transform(finalX, finalY, finalSize, finalSize);
-
-                    String path = SPRITE_PATHS.getOrDefault(choice, "planets/earth.png");
-
-                    AnimationRenderer ar = new AnimationRenderer();
-                    ar.addAnimation("spin", path, 30, 8, 0.08f, true);
-                    // sun and saturn sprites appear smaller due to corona/rings — bump up scale to match SolarSystemMap
-                    if (choice.equals("Sun")) ar.setScale(1.6f);
-                    if (choice.equals("Saturn")) ar.setScale(2.7f);
-                    setAnimationRenderer(ar);
-
-                    setTag("choice_" + choice);
-                }
-
-                @Override public void update(float deltaTime) {}
-                @Override public void resize(int w, int h) {}
-            };
-
-            entityManager.addEntity(choiceEntity);
-            // start manually so we do not restart the sound entity
-            choiceEntity.start();
-            choiceEntities.add(choiceEntity);
-
-            // invisible button sits exactly on the sprite bounds — UIInputSystem detects the click
-            choiceButtons[i] = new UIButton("", bodyFont);
-            choiceButtons[i].setSize(spriteSize, spriteSize);
-            choiceButtons[i].setPosition(finalX, finalY);
-            choiceButtons[i].setOnClick(() -> handleAnswer(choice));
-            uiLayer.add(choiceButtons[i]);
+            ChoiceEntity ce = new ChoiceEntity(choices.get(i), xs[i], ys[i], spriteSize);
+            entityManager.addEntity(ce);
+            ce.start();
+            choiceEntities.add(ce);
         }
+    }
+
+    // Named inner class — Java anonymous classes cannot both extend AbstractEntity AND implement
+    // ICollision, so a named inner class is required. CollisionManager fires collision events on
+    // this entity when the MainObject mouse cursor overlaps its Collider.
+    private class ChoiceEntity extends AbstractEntity implements ICollision {
+
+        private final String choice;
+        private final float cx, cy, size;
+        private Collider collider;
+
+        ChoiceEntity(String choice, float x, float y, float size) {
+            this.choice = choice;
+            this.cx = x;
+            this.cy = y;
+            this.size = size;
+        }
+
+        @Override
+        public void start() {
+            transform = new Transform(cx, cy, size, size);
+
+            AnimationRenderer ar = new AnimationRenderer();
+            ar.addAnimation("spin", SPRITE_PATHS.getOrDefault(choice, "planets/earth.png"), 30, 8, 0.08f, true);
+            if (choice.equals("Sun"))    ar.setScale(1.6f);
+            if (choice.equals("Saturn")) ar.setScale(2.7f);
+            setAnimationRenderer(ar);
+            setTag("choice_" + choice);
+
+            collider = new Collider(transform);
+            addComponent(Collider.class, collider);
+        }
+
+        @Override public void update(float deltaTime) {}
+        @Override public void resize(int w, int h) {}
+        @Override public Collider getCollider() { return collider; }
+
+        @Override public void onCollisionStart(AbstractEntity other) {}
+
+        // click is registered here — fired every frame the cursor overlaps this entity
+        @Override
+        public void onCollisionUpdate(AbstractEntity other) {
+            if ("mouse".equals(other.getTag())
+                    && gameState == GameState.PLAYING
+                    && ioManager.wasPressed("leftClick")) {
+                handleAnswer(choice);
+            }
+        }
+
+        @Override public void onCollisionExit(AbstractEntity other) {}
     }
 
     // checks whether the chosen planet is correct, plays a sound and starts the feedback timer
@@ -326,12 +353,8 @@ public class MatchThePlanetMap implements ISimulation {
 
         if (lastAnswerCorrect) correctCount++;
 
-        // request sound through the component system — AudioSystem picks it up next frame
         SoundEventComponent sfx = soundEntity.getComponent(SoundEventComponent.class);
         if (sfx != null) sfx.request("ui_click");
-
-        // hide buttons so the player cannot click again during the feedback display
-        for (UIButton btn : choiceButtons) if (btn != null) btn.setVisible(false);
 
         feedbackTimer = FEEDBACK_DURATION;
         gameState = GameState.FEEDBACK;
@@ -343,13 +366,10 @@ public class MatchThePlanetMap implements ISimulation {
         currentIndex++;
 
         if (currentIndex >= roundQuestions.size()) {
-            // round is finished — clean up and show the result screen
-            for (UIButton btn : choiceButtons) if (btn != null) uiLayer.remove(btn);
             for (AbstractEntity e : choiceEntities) entityManager.removeEntity(e);
             choiceEntities.clear();
             gameState = GameState.RESULT;
         } else {
-            // load the next question and continue playing
             loadQuestion(currentIndex);
             gameState = GameState.PLAYING;
         }
@@ -363,8 +383,8 @@ public class MatchThePlanetMap implements ISimulation {
         // ESC always exits the minigame regardless of which state we are in
         if (ioManager.wasPressed("escape")) { onReturn.run(); return; }
 
-        // advance animation frames and process pending sound events
-        entityManager.updateAll(deltaTime);
+        // audioSystem processes sound events queued by entities this frame
+        // entityManager.updateAll() is already called by GameMaster's update loop — do not call it again here
         audioSystem.update(entityManager.getEntities());
 
         switch (gameState) {
@@ -401,8 +421,8 @@ public class MatchThePlanetMap implements ISimulation {
     public void render(SpriteBatch batch) {
 
         viewport.apply();
-        batch.setProjectionMatrix(camera.combined);
-        shapeRenderer.setProjectionMatrix(camera.combined);
+        batch.setProjectionMatrix(viewport.getCamera().combined);
+        shapeRenderer.setProjectionMatrix(viewport.getCamera().combined);
 
         switch (gameState) {
             case INSTRUCTIONS: renderInstructions(); break;
