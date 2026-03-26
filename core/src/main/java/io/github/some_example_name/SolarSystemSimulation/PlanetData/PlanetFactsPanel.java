@@ -11,18 +11,29 @@ import com.badlogic.gdx.utils.viewport.Viewport;
 import java.util.HashMap;
 import java.util.Map;
 
+import io.github.some_example_name.AbstractEngine.UIManagement.UIElement;
 import io.github.some_example_name.SolarSystemSimulation.ScaleUtil;
 
 /*
     PlanetFactsPanel
 
+    Now extends UIElement so it is registered with UIManager → UILayer and
+    rendered through the standard UI pipeline instead of being called directly.
+
+    Callers should:
+      1. Add this panel to a UILayer once (e.g. in initialize()).
+      2. Call setState(planetName, data) each frame before UIManager.render()
+         so the panel knows what to draw.
+      3. Call setVisible(true/false) to show or hide the panel.
+
     All spacing is multiplied by ScaleUtil.get() so the panel looks correct
     at any resolution. Fun Facts rendering stops before reaching the Controls
     zone so content never overlaps the keyboard hints.
 */
-public class PlanetFactsPanel {
+public class PlanetFactsPanel extends UIElement {
 
-    private final SpriteBatch batch;
+    // ShapeRenderer is needed for background rects — still injected via constructor
+    // because UIElement.render() only receives SpriteBatch.
     private final ShapeRenderer shapeRenderer;
     private final Viewport viewport;
 
@@ -35,14 +46,16 @@ public class PlanetFactsPanel {
 
     private Map<String, Runnable> gameCallbacks = new HashMap<>();
 
-    public PlanetFactsPanel(SpriteBatch batch,
-                            ShapeRenderer shapeRenderer,
+    // State fed in by SolarSystemMap each frame via setState()
+    private String planetName;
+    private PlanetDataComponent data;
+
+    public PlanetFactsPanel(ShapeRenderer shapeRenderer,
                             Viewport viewport,
                             BitmapFont titleFont,
                             BitmapFont headerFont,
                             BitmapFont bodyFont,
                             BitmapFont statFont) {
-        this.batch = batch;
         this.shapeRenderer = shapeRenderer;
         this.viewport = viewport;
         this.titleFont = titleFont;
@@ -55,9 +68,17 @@ public class PlanetFactsPanel {
         this.gameCallbacks = callbacks;
     }
 
-    public void render(String planetName, PlanetDataComponent data) {
+    // Call this every frame before UIManager.render() to supply fresh data.
+    // Setting data to null effectively makes the panel render nothing even if visible.
+    public void setState(String planetName, PlanetDataComponent data) {
+        this.planetName = planetName;
+        this.data = data;
+    }
 
-        if (data == null) return;
+    // Called by UILayer during its render pass — batch is already open.
+    @Override
+    public void render(SpriteBatch batch) {
+        if (!visible || data == null) return;
 
         float s = ScaleUtil.get();
 
@@ -80,6 +101,10 @@ public class PlanetFactsPanel {
         // Scrolling content must not go below this Y
         float contentFloor = panelBottomY + controlsBlockH + buttonBlockH + padding;
 
+        // UILayer keeps the batch open between elements, so close it before
+        // using ShapeRenderer and re-open it when done.
+        batch.end();
+
         // Panel background
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         shapeRenderer.setColor(0f, 0f, 0.15f, 0.95f);
@@ -100,23 +125,23 @@ public class PlanetFactsPanel {
         titleFont.draw(batch, planetName, textX, textY);
         textY -= 60f * s;
 
-        textY = renderAbout(data, panelWidth, padding, textX, textY, s);
+        textY = renderAbout(batch, data, panelWidth, padding, textX, textY, s);
         textY -= 30f * s;
 
-        textY = renderStats(data, textX, textY, s);
+        textY = renderStats(batch, data, textX, textY, s);
         textY -= 40f * s;
 
-        renderFacts(data, panelWidth, padding, panelX, textX, textY, contentFloor, s);
+        renderFacts(batch, data, panelWidth, padding, panelX, textX, textY, contentFloor, s);
 
-        renderControls(panelX, panelBottomY, padding, s);
-        renderPlayGameButton(planetName, panelX, panelWidth, panelBottomY, padding, s);
-
-        batch.end();
+        renderControls(batch, panelX, panelBottomY, padding, s);
+        renderPlayGameButton(batch, planetName, panelX, panelWidth, panelBottomY, padding, s);
+        // batch is left open — UILayer will close it after all elements are drawn
     }
 
-    private float renderAbout(PlanetDataComponent data,
-                              float panelWidth, float padding,
-                              float textX, float textY, float s) {
+    private float renderAbout(SpriteBatch batch,
+                               PlanetDataComponent data,
+                               float panelWidth, float padding,
+                               float textX, float textY, float s) {
 
         headerFont.draw(batch, "About This Planet", textX, textY);
         textY -= 45f * s;
@@ -128,8 +153,9 @@ public class PlanetFactsPanel {
         return textY - layout.height - 30f * s;
     }
 
-    private float renderStats(PlanetDataComponent data,
-                              float textX, float textY, float s) {
+    private float renderStats(SpriteBatch batch,
+                               PlanetDataComponent data,
+                               float textX, float textY, float s) {
 
         headerFont.draw(batch, "Key Stats", textX, textY);
         textY -= 45f * s;
@@ -148,10 +174,11 @@ public class PlanetFactsPanel {
         return textY;
     }
 
-    private void renderFacts(PlanetDataComponent data,
-                             float panelWidth, float padding,
-                             float panelX, float textX,
-                             float textY, float contentFloor, float s) {
+    private void renderFacts(SpriteBatch batch,
+                              PlanetDataComponent data,
+                              float panelWidth, float padding,
+                              float panelX, float textX,
+                              float textY, float contentFloor, float s) {
 
         headerFont.draw(batch, "Fun Facts", textX, textY);
         textY -= 50f * s;
@@ -191,7 +218,9 @@ public class PlanetFactsPanel {
     }
 
     // Controls anchored to the panel bottom — never overlaps content
-    private void renderControls(float panelX, float panelBottomY, float padding, float s) {
+    private void renderControls(SpriteBatch batch,
+                                 float panelX, float panelBottomY,
+                                 float padding, float s) {
 
         float textX = panelX + padding;
         float textY = panelBottomY + padding + 30f * s * 3f + 10f * s;
@@ -205,9 +234,10 @@ public class PlanetFactsPanel {
     }
 
     // PLAY GAME button anchored just above the controls block
-    private void renderPlayGameButton(String planetName,
-                                      float panelX, float panelWidth,
-                                      float panelBottomY, float padding, float s) {
+    private void renderPlayGameButton(SpriteBatch batch,
+                                       String planetName,
+                                       float panelX, float panelWidth,
+                                       float panelBottomY, float padding, float s) {
 
         if (!gameCallbacks.containsKey(planetName)) return;
 
@@ -239,7 +269,8 @@ public class PlanetFactsPanel {
         headerFont.setColor(Color.CYAN);
     }
 
-    // Click detection must mirror renderPlayGameButton geometry exactly
+    // Click detection must mirror renderPlayGameButton geometry exactly.
+    // Call this from SolarSystemMap.update() when isPresenting() is true.
     public boolean checkPlayGameClick(String planetName, float mouseX, float mouseY, boolean wasClicked) {
 
         if (!gameCallbacks.containsKey(planetName)) return false;

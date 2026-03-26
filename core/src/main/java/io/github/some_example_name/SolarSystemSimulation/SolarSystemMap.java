@@ -22,6 +22,7 @@ import io.github.some_example_name.AbstractEngine.MovementManagement.*;
 import io.github.some_example_name.AbstractEngine.AudioManagement.*;
 import io.github.some_example_name.AbstractEngine.ScreenManagement.*;
 import io.github.some_example_name.AbstractEngine.AIManagement.*;
+import io.github.some_example_name.AbstractEngine.UIManagement.*;
 import io.github.some_example_name.SolarSystemSimulation.PlanetData.*;
 import io.github.some_example_name.SolarSystemSimulation.PlanetInteractive.*;
 import io.github.some_example_name.SolarSystemSimulation.Shared.PlanetAssets;
@@ -48,9 +49,9 @@ public class SolarSystemMap implements ISimulation {
 
     // handles clicking a planet and entering presentation mode
     private PlanetPresentationHandler interactionHandler;
-    // draws the planet name bar along the edge of the screen
+    // draws the planet name bar along the top of the screen — registered with uiManager
     private PlanetNameBar planetNameBar;
-    // draws the facts panel when a planet is selected
+    // draws the facts panel when a planet is selected — registered with uiManager
     private PlanetFactsPanel planetFactsPanel;
 
     // lets the player cycle through planets to compare sizes
@@ -64,6 +65,11 @@ public class SolarSystemMap implements ISimulation {
     // maps planet names to the minigame that should open when the play button is clicked
     // filled in by SimulationScreen after all worlds are ready
     private Map<String, Runnable> gameCallbacks = new HashMap<>();
+
+    // UI pipeline — PlanetNameBar and PlanetFactsPanel are UIElements registered here
+    // instead of being rendered by direct render() calls
+    private final UIManager uiManager = new UIManager();
+    private final UILayer   uiLayer   = new UILayer();
 
     // shared panel fonts — four sizes used across all UI panels in this world
     private SimulationFonts fonts;
@@ -199,12 +205,6 @@ public class SolarSystemMap implements ISimulation {
         // used to calculate the display heights of two planets side by side
         sizeComparator = new PlanetSizeComparator();
 
-        // draws the scrollable name bar along the side of the screen
-        planetNameBar = new PlanetNameBar(batch, viewport);
-
-        // lets the player switch which planet is shown in the comparison column
-        comparisonSelector = new PlanetComparisonSelector(orderedPlanets);
-
         // load all four shared font sizes
         fonts = new SimulationFonts();
 
@@ -215,9 +215,20 @@ public class SolarSystemMap implements ISimulation {
         font = labelGen.generateFont(labelParam);
         labelGen.dispose();
 
+        // --- UI pipeline setup ---
+        // Both PlanetNameBar and PlanetFactsPanel are UIElements owned by uiLayer.
+        // uiManager.render(batch) at the end of render() drives them both.
+
+        uiManager.addLayer(uiLayer);
+
+        // PlanetNameBar no longer takes a batch — it receives one from UILayer at render time
+        planetNameBar = new PlanetNameBar(viewport);
+        planetNameBar.initialize(orderedPlanets);
+        uiLayer.add(planetNameBar);
+
         // the facts panel shows planet data and the play game button
+        // starts hidden; setVisible(true) is called when a planet is selected
         planetFactsPanel = new PlanetFactsPanel(
-            batch,
             shapeRenderer,
             viewport,
             fonts.title,
@@ -225,8 +236,11 @@ public class SolarSystemMap implements ISimulation {
             fonts.body,
             fonts.stat
         );
+        planetFactsPanel.setVisible(false);
+        uiLayer.add(planetFactsPanel);
 
-        planetNameBar.initialize(orderedPlanets);
+        // lets the player switch which planet is shown in the comparison column
+        comparisonSelector = new PlanetComparisonSelector(orderedPlanets);
 
         // pass callbacks in case they were set before initialize() was called
         planetFactsPanel.setGameCallbacks(gameCallbacks);
@@ -241,6 +255,7 @@ public class SolarSystemMap implements ISimulation {
         // ESC closes the facts panel and returns all planets to normal orbit
         if (ioManager.wasPressed("escape") && interactionHandler.isSelected()) {
             soundManager.playSound("ui_click");
+            planetFactsPanel.setVisible(false);
             interactionHandler.triggerDeselect(entityManager.getEntities());
         }
 
@@ -251,10 +266,16 @@ public class SolarSystemMap implements ISimulation {
         if (ioManager.wasPressed("d"))
             comparisonSelector.next();
 
-        // check if the play game button was clicked while a planet is presented
+        // feed the panel fresh state every frame so it always reflects the selected planet
         if (interactionHandler.isPresenting()) {
             PlanetObj selected = interactionHandler.getSelectedPlanet();
             if (selected != null) {
+                planetFactsPanel.setState(
+                    selected.getPlanetName(),
+                    selected.getComponent(PlanetDataComponent.class)
+                );
+
+                // check if the play game button was clicked
                 Vector2 mouse = viewport.unproject(
                     new Vector2(ioManager.getMouseX(), ioManager.getMouseY())
                 );
@@ -276,6 +297,7 @@ public class SolarSystemMap implements ISimulation {
                         // reset hover scale before entering presentation so the planet looks normal
                         planet.getAnimationRenderer().setScale(planet.getBaseScale());
                         soundManager.playSound("ui_click");
+                        planetFactsPanel.setVisible(true);
                         interactionHandler.triggerPresentation(planet, entityManager.getEntities());
                         break;
                     }
@@ -294,6 +316,7 @@ public class SolarSystemMap implements ISimulation {
 
             if (clicked != null) {
                 soundManager.playSound("ui_click");
+                planetFactsPanel.setVisible(true);
                 interactionHandler.triggerPresentation(clicked, entityManager.getEntities());
             }
         }
@@ -314,6 +337,11 @@ public class SolarSystemMap implements ISimulation {
             renderPresentation();
         else
             renderSystem();
+
+        // render all registered UIElements (PlanetNameBar + PlanetFactsPanel) on top
+        batch.begin();
+        uiManager.render(batch);
+        batch.end();
     }
 
     // draws a circular orbit line for each planet using the shape renderer
@@ -335,15 +363,16 @@ public class SolarSystemMap implements ISimulation {
         shapeRenderer.end();
     }
 
-    // draws all planet sprites and the name bar in the normal solar system view
+    // draws all planet sprites in the normal solar system view
+    // PlanetNameBar is now drawn by uiManager.render() at the end of render()
     private void renderSystem() {
         batch.begin();
         entityManager.renderAll(batch);
         batch.end();
-        planetNameBar.render();
     }
 
     // draws the selected planet and a comparison planet side by side with the facts panel
+    // PlanetFactsPanel is now drawn by uiManager.render() at the end of render()
     private void renderPresentation() {
 
         PlanetObj selected = interactionHandler.getSelectedPlanet();
@@ -362,12 +391,6 @@ public class SolarSystemMap implements ISimulation {
             renderComparisonPlanet(selected, heights[0], screenWidth * 0.3f, screenHeight * 0.72f);
             renderComparisonPlanet(compare, heights[1], screenWidth * 0.3f, screenHeight * 0.28f);
         }
-
-        // draw the facts panel on the right side of the screen
-        planetFactsPanel.render(
-            selected.getPlanetName(),
-            selected.getComponent(PlanetDataComponent.class)
-        );
     }
 
     // draws one planet sprite at a given height, centered on cx/cy, with its name below
@@ -411,7 +434,9 @@ public class SolarSystemMap implements ISimulation {
         for (AbstractEntity entity : entityManager.getEntities())
             entity.resize(width, height);
 
-        planetNameBar.resize();
+        if (planetNameBar != null)
+            planetNameBar.resize();
+
         collisionManager.setWorldBounds(width, height);
     }
 
@@ -432,5 +457,8 @@ public class SolarSystemMap implements ISimulation {
 
         if (fonts != null) fonts.dispose();
         if (font  != null) font.dispose();
+        uiLayer.remove(planetNameBar);
+        uiLayer.remove(planetFactsPanel);
+        
     }
 }

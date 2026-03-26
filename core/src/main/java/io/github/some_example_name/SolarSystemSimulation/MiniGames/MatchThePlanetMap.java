@@ -53,7 +53,6 @@ public class MatchThePlanetMap extends AbstractMinigame {
     private final CollisionManager collisionManager;
 
     // ── UI ───────────────────────────────────────────────────────────────────
-    private final UIManager     uiManager = new UIManager();
     private final UILayer       uiLayer   = new UILayer();
     private       UIInputSystem uiInputSystem;
 
@@ -103,10 +102,12 @@ public class MatchThePlanetMap extends AbstractMinigame {
     @Override
     public void initialize() {
 
-        // sets up viewport, shapeRenderer, background, fonts, resultPanel
+        // add game button layer first so resultLayer (added by initBase) renders on top
+        uiManager.addLayer(uiLayer);
+
+        // sets up viewport, shapeRenderer, background, fonts, resultPanel + resultLayer
         initBase("planets/spaceBackground.png");
 
-        uiManager.addLayer(uiLayer);
         uiInputSystem = new UIInputSystem(ioManager, uiManager);
 
         setupSoundEntity();
@@ -268,6 +269,7 @@ public class MatchThePlanetMap extends AbstractMinigame {
         if (currentIndex >= roundQuestions.size()) {
             for (AbstractEntity e : choiceEntities) entityManager.removeEntity(e);
             choiceEntities.clear();
+            showResult(correctCount, roundQuestions.size());
             gameState = GameState.RESULT;
         } else {
             loadQuestion(currentIndex);
@@ -315,8 +317,14 @@ public class MatchThePlanetMap extends AbstractMinigame {
             case INSTRUCTIONS: instructionPanel.render(); break;
             case PLAYING:      renderGame(); break;
             case FEEDBACK:     renderGame(); renderFeedbackOverlay(); break;
-            case RESULT:       resultPanel.render(correctCount, QUESTIONS_PER_ROUND); break;
+            case RESULT:       break;
         }
+
+        // uiManager renders buttons (uiLayer) AND the result panel (resultLayer) every frame.
+        // resultPanel is hidden until showResult() makes it visible, so this is always safe.
+        batch.begin();
+        uiManager.render(batch);
+        batch.end();
     }
 
     private void renderGame() {

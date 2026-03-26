@@ -45,7 +45,6 @@ public class FactOrFictionMap extends AbstractMinigame {
 
     private enum GameState { INSTRUCTIONS, PLAYING, FEEDBACK, RESULT }
 
-    private final UIManager     uiManager = new UIManager();
     private final UILayer       uiLayer   = new UILayer();
     private       UIInputSystem uiInputSystem;
     private       UIButton      trueButton;
@@ -83,10 +82,12 @@ public class FactOrFictionMap extends AbstractMinigame {
     @Override
     public void initialize() {
 
-        // sets up viewport, shapeRenderer, background, fonts, resultPanel
+        // add game button layer first so resultLayer (added by initBase) renders on top
+        uiManager.addLayer(uiLayer);
+
+        // sets up viewport, shapeRenderer, background, fonts, resultPanel + resultLayer
         initBase("planets/spaceBackground.png");
 
-        uiManager.addLayer(uiLayer);
         uiInputSystem = new UIInputSystem(ioManager, uiManager);
 
         setupBackgroundPlanet();
@@ -219,6 +220,7 @@ public class FactOrFictionMap extends AbstractMinigame {
         if (currentIndex >= QUESTIONS_PER_ROUND) {
             if (trueButton  != null) uiLayer.remove(trueButton);
             if (falseButton != null) uiLayer.remove(falseButton);
+            showResult(correctCount, QUESTIONS_PER_ROUND);
             gameState = GameState.RESULT;
         } else {
             loadQuestion(currentIndex);
@@ -266,8 +268,14 @@ public class FactOrFictionMap extends AbstractMinigame {
         switch (gameState) {
             case INSTRUCTIONS:            instructionPanel.render(); break;
             case PLAYING: case FEEDBACK:  renderGame(); break;
-            case RESULT:                  resultPanel.render(correctCount, QUESTIONS_PER_ROUND); break;
+            case RESULT:                  break;
         }
+
+        // uiManager renders buttons (uiLayer) AND the result panel (resultLayer) every frame.
+        // resultPanel is hidden until showResult() makes it visible, so this is always safe.
+        batch.begin();
+        uiManager.render(batch);
+        batch.end();
     }
 
     // draws the question panel, TRUE/FALSE buttons and the feedback overlay
@@ -352,7 +360,6 @@ public class FactOrFictionMap extends AbstractMinigame {
         shapeRenderer.end();
 
         batch.begin();
-        uiManager.render(batch);
 
         // verdict and explanation shown during the feedback phase
         if (gameState == GameState.FEEDBACK) {

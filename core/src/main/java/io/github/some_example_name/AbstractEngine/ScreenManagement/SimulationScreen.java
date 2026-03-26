@@ -61,7 +61,7 @@ public class SimulationScreen extends AbstractScreen {
 
     private BitmapFont font;
 
-    // constructor — stores all engine systems and sets up the worlds
+    // constructor — stores all engine systems, sets up worlds, and does all one-time UI setup
     public SimulationScreen(ScreenManager manager,
                             SpriteBatch batch,
                             IOManager ioManager,
@@ -87,6 +87,52 @@ public class SimulationScreen extends AbstractScreen {
         initializeWorlds();
         // give the solar system world the callbacks it needs to launch minigames
         wireGameCallbacks();
+
+        // ── one-time UI setup ────────────────────────────────────────────────
+        // Done here in the constructor so show() can be called multiple times
+        // (every time the player navigates back to this screen) without
+        // duplicating layers, buttons, or font allocations.
+
+        // generate the font used on the back button from a ttf file
+        FreeTypeFontGenerator generator =
+            new FreeTypeFontGenerator(Gdx.files.internal("fonts/star_crush.ttf"));
+
+        FreeTypeFontGenerator.FreeTypeFontParameter parameter =
+            new FreeTypeFontGenerator.FreeTypeFontParameter();
+
+        parameter.size = 90;
+
+        font = generator.generateFont(parameter);
+        // dispose the generator after the font is built to free memory
+        generator.dispose();
+
+        // register the UI layer so buttons get drawn
+        uiManager.addLayer(uiLayer);
+
+        // create the back button with a label and the font we just generated
+        quitButton = new UIButton("BACK", font);
+        quitButton.setSize(140, 45);
+
+        // what happens when the player clicks the back button
+        quitButton.setOnClick(() -> {
+            // play a click sound and restart the menu music
+            soundManager.playSound("ui_click");
+            soundManager.playMusic("menu_bgm", true);
+
+            // clean up whatever world is currently running
+            if (currentWorld != null)
+                currentWorld.dispose();
+
+            currentWorld = null;
+
+            // go back to the start screen
+            manager.setScreen("start");
+        });
+
+        uiLayer.add(quitButton);
+
+        // set up the system that detects mouse clicks on buttons
+        uiInputSystem = new UIInputSystem(ioManager, uiManager);
     }
 
     // creates each world and adds it to the worlds map under a string key
@@ -181,7 +227,9 @@ public class SimulationScreen extends AbstractScreen {
         }
     }
 
-    // called when this screen becomes the active screen — sets up the viewport, font, and back button
+    // called every time this screen becomes active — re-creates the viewport and loads the solar system
+    // UI setup (font, button, uiManager) is intentionally NOT here — it lives in the constructor
+    // so repeated show() calls cannot accumulate duplicate layers or buttons
     @Override
     public void show() {
 
@@ -189,61 +237,18 @@ public class SimulationScreen extends AbstractScreen {
 
         // 2560x1440 = your design resolution
         viewport = new FitViewport(2560, 1440, camera);
-
-        // apply once
         viewport.apply();
 
-        // generate the font used on the back button from a ttf file
-        FreeTypeFontGenerator generator =
-            new FreeTypeFontGenerator(Gdx.files.internal("fonts/star_crush.ttf"));
-
-        FreeTypeFontGenerator.FreeTypeFontParameter parameter =
-            new FreeTypeFontGenerator.FreeTypeFontParameter();
-
-        parameter.size = 90;
-
-        font = generator.generateFont(parameter);
-        // dispose the generator after the font is built to free memory
-        generator.dispose();
-
-        // register the UI layer so buttons get drawn
-        uiManager.addLayer(uiLayer);
-
-        // create the back button with a label and the font we just generated
-        quitButton = new UIButton("BACK", font);
-
-        float buttonWidth = 140;
-        float buttonHeight = 45;
-
-        quitButton.setSize(buttonWidth, buttonHeight);
-
-        // what happens when the player clicks the back button
-        quitButton.setOnClick(() -> {
-            // play a click sound and restart the menu music
-            soundManager.playSound("ui_click");
-            soundManager.playMusic("menu_bgm", true);
-
-            // clean up whatever world is currently running
-            if (currentWorld != null)
-                currentWorld.dispose();
-
-            currentWorld = null;
-
-            // go back to the start screen
-            manager.setScreen("start");
-        });
-
-        uiLayer.add(quitButton);
-
-        // set up the system that detects mouse clicks on buttons
-        uiInputSystem = new UIInputSystem(ioManager, uiManager);
-
+        loadWorld("solarSystem");
         resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
     }
 
     // called whenever the window is resized — updates the viewport and repositions the button
     @Override
     public void resize(int width, int height) {
+
+        // viewport may be null if resize fires before show() (can happen on some platforms)
+        if (viewport == null) return;
 
         // true centers the camera after resizing
         viewport.update(width, height, true);
@@ -309,8 +314,9 @@ public class SimulationScreen extends AbstractScreen {
         if (font != null) font.dispose();
         for (ISimulation world : worlds.values()) {
             if (world != null) world.dispose();
+        }
     }
-}
+
     @Override public void hide() {}
     @Override public void pause() {}
     @Override public void resume() {}

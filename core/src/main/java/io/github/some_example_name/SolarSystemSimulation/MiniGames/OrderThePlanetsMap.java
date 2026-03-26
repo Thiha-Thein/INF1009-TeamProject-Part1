@@ -68,7 +68,6 @@ public class OrderThePlanetsMap extends AbstractMinigame {
     private final MovementManager movementManager;
 
     // ── UI ───────────────────────────────────────────────────────────────────
-    private final UIManager uiManager    = new UIManager();
     private final UILayer   slotLayer    = new UILayer();
     private final UILayer   confirmLayer = new UILayer();
     private UIInputSystem   uiInputSystem;
@@ -114,11 +113,13 @@ public class OrderThePlanetsMap extends AbstractMinigame {
     @Override
     public void initialize() {
 
-        // sets up viewport, shapeRenderer, background, fonts, resultPanel
-        initBase("planets/spaceBackground.png");
-
+        // add game layers first so resultLayer (added by initBase) renders on top
         uiManager.addLayer(slotLayer);
         uiManager.addLayer(confirmLayer);
+
+        // sets up viewport, shapeRenderer, background, fonts, resultPanel + resultLayer
+        initBase("planets/spaceBackground.png");
+
         uiInputSystem = new UIInputSystem(ioManager, uiManager);
 
         setupSoundEntity();
@@ -347,7 +348,10 @@ public class OrderThePlanetsMap extends AbstractMinigame {
                 break;
             case CONFIRMING:
                 confirmTimer -= deltaTime;
-                if (confirmTimer <= 0f) gameState = GameState.RESULT;
+                if (confirmTimer <= 0f) {
+                    showResult(correctCountForResult, PLANET_COUNT);
+                    gameState = GameState.RESULT;
+                }
                 break;
             case RESULT:
                 break;
@@ -366,10 +370,15 @@ public class OrderThePlanetsMap extends AbstractMinigame {
         switch (gameState) {
             case INSTRUCTIONS:              instructionPanel.render(); break;
             case PLAYING: case CONFIRMING:  renderGame(); break;
-            case RESULT:
-                resultPanel.render(correctCountForResult, PLANET_COUNT);
-                break;
+            case RESULT:                    break;
         }
+
+        // uiManager renders buttons (slotLayer, confirmLayer) AND the result panel
+        // (resultLayer) every frame. resultPanel is hidden until showResult() makes
+        // it visible, so this is always safe.
+        batch.begin();
+        uiManager.render(batch);
+        batch.end();
     }
 
     private void renderGame() {
@@ -491,7 +500,6 @@ public class OrderThePlanetsMap extends AbstractMinigame {
         }
 
         batch.begin();
-        uiManager.render(batch);
         layout.setText(fonts.body, "ESC  —  Return to Solar System",
             new Color(0.7f, 0.7f, 0.7f, 1f), sw, Align.center, false);
         fonts.body.setColor(new Color(0.7f, 0.7f, 0.7f, 1f));

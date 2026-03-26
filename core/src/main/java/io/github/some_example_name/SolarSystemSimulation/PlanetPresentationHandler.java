@@ -56,7 +56,21 @@ public class PlanetPresentationHandler {
     // Silently ignored if a planet is already selected to prevent overlapping presentations
     public void triggerPresentation(PlanetObj planet, List<AbstractEntity> entities) {
 
-        if (selectedPlanet != null) return;
+        // If we are mid-return-transition, snap it to completion immediately
+        // so a fast click on a new planet is never silently dropped
+        if (selectedPlanet != null) {
+            if (returningToOrbit) {
+                selectedPlanet.getTransform().setX(originalX);
+                selectedPlanet.getTransform().setY(originalY);
+                if (selectedPlanet.getAnimationRenderer() != null)
+                    selectedPlanet.getAnimationRenderer().setScale(originalScale);
+                transitioning    = false;
+                returningToOrbit = false;
+                selectedPlanet   = null;
+            } else {
+                return; // genuinely mid-presentation, ignore the click
+            }
+        }
 
         selectedPlanet = planet;
 

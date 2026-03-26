@@ -8,14 +8,24 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
-// draws the result screen shown at the end of every minigame
-// takes a score and total, then draws a centered panel with a message and an ESC instruction
-public class GameResultPanel {
+import io.github.some_example_name.AbstractEngine.UIManagement.UIElement;
 
-    // rendering tools passed in from the parent map, not created here
-    private final SpriteBatch batch;
+// Draws the result screen shown at the end of every minigame.
+//
+// Now extends UIElement so it is managed by UIManager → UILayer and rendered
+// through the standard UI pipeline. Callers should:
+//   1. Add this panel to a UILayer once (e.g. in initBase / initialize()).
+//   2. Call setResults(correct, total) when the round ends.
+//   3. Call setVisible(true) to show the panel; setVisible(false) to hide it.
+//
+// The batch passed to render() is already open. This class closes it only around
+// ShapeRenderer calls and re-opens it immediately after, exactly as before.
+public class GameResultPanel extends UIElement {
+
+    // ShapeRenderer is needed for background/divider shapes — injected via constructor
+    // because UIElement.render() only receives SpriteBatch.
     private final ShapeRenderer shapeRenderer;
-    private final Viewport viewport;
+    private final Viewport      viewport;
 
     // three font sizes used for different lines of text on the panel
     private final BitmapFont titleFont;   // size 46 — used for the "RESULTS" heading
@@ -32,40 +42,45 @@ public class GameResultPanel {
     // panel takes up 55% of the screen height
     private static final float PANEL_H_FRAC = 0.55f;
 
-    // constructor — stores all the rendering tools and fonts passed in from the minigame
-    public GameResultPanel(SpriteBatch batch,
-                           ShapeRenderer shapeRenderer,
+    // Result state set by the minigame when the round ends
+    private int correct;
+    private int total;
+
+    public GameResultPanel(ShapeRenderer shapeRenderer,
                            Viewport viewport,
                            BitmapFont titleFont,
                            BitmapFont headerFont,
                            BitmapFont bodyFont) {
-
-        this.batch = batch;
         this.shapeRenderer = shapeRenderer;
-        this.viewport = viewport;
-        this.titleFont = titleFont;
-        this.headerFont = headerFont;
-        this.bodyFont = bodyFont;
+        this.viewport      = viewport;
+        this.titleFont     = titleFont;
+        this.headerFont    = headerFont;
+        this.bodyFont      = bodyFont;
     }
 
-    // draws the full result panel every frame
-    // correct — how many questions the player got right
-    // total   — how many questions were in the round
-    public void render(int correct, int total) {
+    // Call this when the round ends to supply the score before making the panel visible.
+    public void setResults(int correct, int total) {
+        this.correct = correct;
+        this.total   = total;
+    }
 
-        // get the current screen size from the viewport
+    // Called by UILayer — batch is already open.
+    // ShapeRenderer sections temporarily close and re-open the batch as needed.
+    @Override
+    public void render(SpriteBatch batch) {
+        if (!visible) return;
+
         float sw = viewport.getWorldWidth();
         float sh = viewport.getWorldHeight();
 
-        // calculate the panel size as a fraction of the screen
         float panelW = sw * PANEL_W_FRAC;
         float panelH = sh * PANEL_H_FRAC;
 
-        // position the panel so it sits in the center of the screen
         float panelX = (sw - panelW) / 2f;
         float panelY = (sh - panelH) / 2f;
 
         // draw the dark blue filled background rectangle
+        batch.end();
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         shapeRenderer.setColor(0f, 0f, 0.15f, 0.97f);
         shapeRenderer.rect(panelX, panelY, panelW, panelH);
@@ -76,10 +91,8 @@ public class GameResultPanel {
         shapeRenderer.setColor(0.5f, 0.7f, 1f, 1f);
         shapeRenderer.rect(panelX, panelY, panelW, panelH);
         shapeRenderer.end();
-
         batch.begin();
 
-        // starting x and y positions for text, inset by padding
         float textX = panelX + PADDING;
         float textY = panelY + panelH - PADDING;
         float textW = panelW - PADDING * 2f;
@@ -88,10 +101,8 @@ public class GameResultPanel {
         titleFont.setColor(Color.CYAN);
         layout.setText(titleFont, "RESULTS", Color.CYAN, textW, Align.center, false);
         titleFont.draw(batch, layout, textX, textY);
-        // reset font color back to white after drawing
         titleFont.setColor(Color.WHITE);
 
-        // move y down by the height of the title plus a gap
         textY -= layout.height + 30f;
 
         // draw the score line showing how many questions were correct
@@ -106,16 +117,14 @@ public class GameResultPanel {
         layout.setText(headerFont, message, Color.YELLOW, textW, Align.center, true);
         headerFont.setColor(Color.YELLOW);
         headerFont.draw(batch, layout, textX, textY);
-        // reset font color back to white after drawing
         headerFont.setColor(Color.WHITE);
 
         textY -= layout.height + 50f;
 
-        // end the batch so ShapeRenderer can draw the divider line
+        // draw a horizontal divider between score and instructions
         batch.end();
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
         shapeRenderer.setColor(0.3f, 0.4f, 0.6f, 1f);
-        // draw a horizontal line across the panel to separate score from instructions
         shapeRenderer.line(panelX + PADDING, textY, panelX + panelW - PADDING, textY);
         shapeRenderer.end();
         batch.begin();
@@ -126,20 +135,18 @@ public class GameResultPanel {
         layout.setText(bodyFont, "Press  ESC  to return to the Solar System",
             Color.LIGHT_GRAY, textW, Align.center, false);
         bodyFont.draw(batch, layout, textX, textY);
-
-        batch.end();
+        // batch is left open — UILayer will close it after all elements are drawn
     }
 
     // returns an encouraging message that matches how well the player scored
     private String buildMessage(int correct, int total) {
 
-        // calculate the score as a value between 0.0 and 1.0
         float ratio = (float) correct / total;
 
-        if (ratio >= 1f) return "Perfect score! You are a true space explorer!";
-        if (ratio >= 0.8f) return "Excellent work! The solar system holds no secrets from you.";
-        if (ratio >= 0.6f) return "Great effort! Keep exploring to learn more.";
-        if (ratio >= 0.4f) return "Good try! Head back and read the planet facts again.";
+        if (ratio >= 1f)    return "Perfect score! You are a true space explorer!";
+        if (ratio >= 0.8f)  return "Excellent work! The solar system holds no secrets from you.";
+        if (ratio >= 0.6f)  return "Great effort! Keep exploring to learn more.";
+        if (ratio >= 0.4f)  return "Good try! Head back and read the planet facts again.";
         return "Keep going! Every explorer starts somewhere.";
     }
 }
