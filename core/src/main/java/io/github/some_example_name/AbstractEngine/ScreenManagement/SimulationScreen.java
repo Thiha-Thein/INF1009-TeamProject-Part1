@@ -304,7 +304,13 @@ public class SimulationScreen extends AbstractScreen {
         batch.end();
     }
 
-    @Override public void dispose() {}
+    @Override
+    public void dispose() {
+        if (font != null) font.dispose();
+        for (ISimulation world : worlds.values()) {
+            if (world != null) world.dispose();
+    }
+}
     @Override public void hide() {}
     @Override public void pause() {}
     @Override public void resume() {}

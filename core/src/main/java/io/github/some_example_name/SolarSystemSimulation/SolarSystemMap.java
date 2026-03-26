@@ -24,7 +24,8 @@ import io.github.some_example_name.AbstractEngine.ScreenManagement.*;
 import io.github.some_example_name.AbstractEngine.AIManagement.*;
 import io.github.some_example_name.SolarSystemSimulation.PlanetData.*;
 import io.github.some_example_name.SolarSystemSimulation.PlanetInteractive.*;
-import io.github.some_example_name.SolarSystemSimulation.ScaleUtil;
+import io.github.some_example_name.SolarSystemSimulation.Shared.PlanetAssets;
+import io.github.some_example_name.SolarSystemSimulation.Shared.SimulationFonts;
 
 // the main solar system world — shows the sun and all planets orbiting it
 // handles planet selection, presentation mode, size comparison and minigame launch
@@ -64,23 +65,23 @@ public class SolarSystemMap implements ISimulation {
     // filled in by SimulationScreen after all worlds are ready
     private Map<String, Runnable> gameCallbacks = new HashMap<>();
 
-    // fonts for the UI panels
-    private BitmapFont titleFont;
-    private BitmapFont headerFont;
-    private BitmapFont bodyFont;
-    private BitmapFont statFont;
+    // shared panel fonts — four sizes used across all UI panels in this world
+    private SimulationFonts fonts;
+    // star_crush typeface used only for the planet name labels in the sidebar
+    // kept separate because it is unique to this world and not part of SimulationFonts
     private BitmapFont font;
 
     // each row defines: name, mass, visual size, sprite path, orbit slot index, starting angle
+    // sprite paths are pulled from PlanetAssets so adding a planet only requires one file change
     private static final Object[][] PLANET_DEFS = {
-        { "Mercury", 18f, 50f, "planets/mercury.png", 0, 0f },
-        { "Venus", 27f, 65f, "planets/venus.png", 1, 45f },
-        { "Earth", 30f, 70f, "planets/earth.png", 2, 90f },
-        { "Mars", 24f, 55f, "planets/mars.png", 3, 135f },
-        { "Jupiter", 90f, 170f, "planets/jupiter.png", 4, 180f },
-        { "Saturn", 78f, 140f, "planets/saturn.png", 5, 250f },
-        { "Uranus", 36f, 105f, "planets/uranus.png", 6, 270f },
-        { "Neptune", 33f, 100f, "planets/neptune.png", 7, 315f },
+        { "Mercury", 18f, 50f, PlanetAssets.SPRITE_PATHS.get("Mercury"), 0, 0f },
+        { "Venus",   27f, 65f, PlanetAssets.SPRITE_PATHS.get("Venus"),   1, 45f },
+        { "Earth",   30f, 70f, PlanetAssets.SPRITE_PATHS.get("Earth"),   2, 90f },
+        { "Mars",    24f, 55f, PlanetAssets.SPRITE_PATHS.get("Mars"),    3, 135f },
+        { "Jupiter", 90f, 170f, PlanetAssets.SPRITE_PATHS.get("Jupiter"), 4, 180f },
+        { "Saturn",  78f, 140f, PlanetAssets.SPRITE_PATHS.get("Saturn"), 5, 250f },
+        { "Uranus",  36f, 105f, PlanetAssets.SPRITE_PATHS.get("Uranus"), 6, 270f },
+        { "Neptune", 33f, 100f, PlanetAssets.SPRITE_PATHS.get("Neptune"), 7, 315f },
     };
 
     // position of Saturn in PLANET_DEFS — needed to apply its ring scale adjustment
@@ -141,7 +142,7 @@ public class SolarSystemMap implements ISimulation {
 
         // create the sun — it has no parent because it does not orbit anything
         float sunSize = ScaleUtil.px(400f);
-        PlanetObj sun = PlanetFactory.create("Sun", 1000f, sunSize, "planets/sun.png", null, -1, 0f);
+        PlanetObj sun = PlanetFactory.create("Sun", 1000f, sunSize, PlanetAssets.SPRITE_PATHS.get("Sun"), null, -1, 0f);
 
         // position the sun in the center of the screen
         sun.setInitialPosition(
@@ -204,61 +205,31 @@ public class SolarSystemMap implements ISimulation {
         // lets the player switch which planet is shown in the comparison column
         comparisonSelector = new PlanetComparisonSelector(orderedPlanets);
 
-        generateFonts();
+        // load all four shared font sizes
+        fonts = new SimulationFonts();
+
+        // separate font for planet name labels using the star_crush typeface
+        FreeTypeFontGenerator labelGen = new FreeTypeFontGenerator(Gdx.files.internal("fonts/star_crush.ttf"));
+        FreeTypeFontGenerator.FreeTypeFontParameter labelParam = new FreeTypeFontGenerator.FreeTypeFontParameter();
+        labelParam.size = ScaleUtil.fontSize(28);
+        font = labelGen.generateFont(labelParam);
+        labelGen.dispose();
 
         // the facts panel shows planet data and the play game button
         planetFactsPanel = new PlanetFactsPanel(
             batch,
             shapeRenderer,
             viewport,
-            titleFont,
-            headerFont,
-            bodyFont,
-            statFont
+            fonts.title,
+            fonts.header,
+            fonts.body,
+            fonts.stat
         );
 
         planetNameBar.initialize(orderedPlanets);
 
         // pass callbacks in case they were set before initialize() was called
         planetFactsPanel.setGameCallbacks(gameCallbacks);
-    }
-
-    // generates all font sizes used by the UI from the rajdhani font file
-    private void generateFonts() {
-
-        FreeTypeFontGenerator generator =
-            new FreeTypeFontGenerator(Gdx.files.internal("fonts/rajdhani.regular.ttf"));
-
-        FreeTypeFontGenerator.FreeTypeFontParameter param =
-            new FreeTypeFontGenerator.FreeTypeFontParameter();
-
-        // title size for panel headings
-        param.size = ScaleUtil.fontSize(46);
-        titleFont = generator.generateFont(param);
-
-        // header size for section labels
-        param.size = ScaleUtil.fontSize(32);
-        headerFont = generator.generateFont(param);
-
-        // body size for regular text
-        param.size = ScaleUtil.fontSize(26);
-        bodyFont = generator.generateFont(param);
-
-        // stat size for numbers and smaller labels
-        param.size = ScaleUtil.fontSize(28);
-        statFont = generator.generateFont(param);
-
-        // done generating — free the font file from memory
-        generator.dispose();
-
-        // separate font for planet name labels using the star_crush typeface
-        FreeTypeFontGenerator labelGen = new FreeTypeFontGenerator(Gdx.files.internal("fonts/star_crush.ttf"));
-
-        FreeTypeFontGenerator.FreeTypeFontParameter labelParam = new FreeTypeFontGenerator.FreeTypeFontParameter();
-        labelParam.size = ScaleUtil.fontSize(28);
-        font = labelGen.generateFont(labelParam);
-
-        labelGen.dispose();
     }
 
     // runs every frame — handles ESC, comparison cycling, planet clicks and play button clicks
@@ -336,8 +307,6 @@ public class SolarSystemMap implements ISimulation {
 
         batch.setProjectionMatrix(camera.combined);
         shapeRenderer.setProjectionMatrix(camera.combined);
-
-        drawBackground();
         drawOrbits();
 
         // show presentation mode when a planet is selected, otherwise show the full system
@@ -345,14 +314,6 @@ public class SolarSystemMap implements ISimulation {
             renderPresentation();
         else
             renderSystem();
-    }
-
-    // draws the space background texture stretched to fill the screen
-    private void drawBackground() {
-
-        batch.begin();
-        batch.draw(background, 0, 0, viewport.getWorldWidth(), viewport.getWorldHeight());
-        batch.end();
     }
 
     // draws a circular orbit line for each planet using the shape renderer
@@ -434,7 +395,7 @@ public class SolarSystemMap implements ISimulation {
         planet.getAnimationRenderer().render(batch, transform);
         batch.end();
 
-        // draw the planet name just below the sprite
+        // draw the planet name just below the sprite using the star_crush label font
         batch.begin();
         font.draw(batch, planet.getPlanetName(),
             x + w / 2f - (planet.getPlanetName().length() * 4.5f), y - 10f);
@@ -469,10 +430,7 @@ public class SolarSystemMap implements ISimulation {
         shapeRenderer.dispose();
         background.dispose();
 
-        titleFont.dispose();
-        headerFont.dispose();
-        bodyFont.dispose();
-        statFont.dispose();
-        font.dispose();
+        if (fonts != null) fonts.dispose();
+        if (font  != null) font.dispose();
     }
 }

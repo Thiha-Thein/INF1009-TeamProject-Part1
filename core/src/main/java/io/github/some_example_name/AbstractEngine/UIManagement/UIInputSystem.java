@@ -31,7 +31,7 @@ public class UIInputSystem {
 
                     UIButton button = (UIButton) element;
 
-                    if (button.contains(mx, my)) {
+                    if (button.isVisible() && button.contains(mx, my)) {
                         button.click();
                         return; // stop after the first hit to prevent click-through to elements underneath
                     }
